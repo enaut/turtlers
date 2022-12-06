@@ -1,0 +1,6 @@
+[submodule "turtle-example"]
+	path = turtle-example
+	url = https://git.teilgedanken.de/dietrich/turtle-example.git
+[submodule "turtle-lib"]
+	path = turtle-lib
+	url = https://git.teilgedanken.de/dietrich/turtle-lib.git
