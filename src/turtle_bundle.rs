@@ -1,0 +1,75 @@
+use std::ops::{Deref, DerefMut};
+
+use bevy::prelude::{Bundle, Color, Name, Transform};
+use bevy_prototype_lyon::{
+    entity::ShapeBundle,
+    prelude::{DrawMode, FillMode, GeometryBuilder, StrokeMode},
+};
+
+use crate::{
+    commands::{DrawElement, MoveCommand, TurtleCommands, TurtleSegment},
+    general::length::Length,
+    shapes::{self, TurtleColors},
+};
+
+#[derive(Bundle)]
+pub struct TurtleBundle {
+    colors: TurtleColors,
+    pub commands: TurtleCommands,
+    name: Name,
+    shape: ShapeBundle,
+}
+
+impl Default for TurtleBundle {
+    fn default() -> Self {
+        Self {
+            colors: TurtleColors::default(),
+            commands: TurtleCommands::new(vec![]),
+            name: Name::new("Turtle"),
+            shape: GeometryBuilder::build_as(
+                &shapes::turtle(),
+                DrawMode::Outlined {
+                    fill_mode: FillMode::color(Color::MIDNIGHT_BLUE),
+                    outline_mode: StrokeMode::new(Color::BLACK, 1.0),
+                },
+                Transform::IDENTITY,
+            ),
+        }
+    }
+}
+
+impl TurtleBundle {
+    pub fn set_commands(&mut self, commands: Vec<TurtleSegment>) {
+        self.commands = TurtleCommands::new(commands);
+    }
+}
+
+impl TurtleBundle {
+    pub fn forward(&mut self, len: f32) -> &mut Self {
+        self.commands.push(TurtleSegment::Single(DrawElement::Draw(
+            MoveCommand::Forward(Length(len)),
+        )));
+        self
+    }
+}
+
+#[derive(Bundle)]
+pub struct AnimatedTurtle {
+    pub animator: bevy_tweening::Animator<bevy::prelude::Transform>,
+    pub turtle_bundle: TurtleBundle,
+    pub turtle_shape: shapes::TurtleShape,
+}
+
+impl Deref for AnimatedTurtle {
+    type Target = TurtleBundle;
+
+    fn deref(&self) -> &Self::Target {
+        &self.turtle_bundle
+    }
+}
+
+impl DerefMut for AnimatedTurtle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.turtle_bundle
+    }
+}
