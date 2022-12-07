@@ -23,6 +23,14 @@ pub struct Angle<T: Default> {
     value: AngleUnit<T>,
 }
 
+impl<T: From<i16> + Default> From<i16> for Angle<T> {
+    fn from(i: i16) -> Self {
+        Self {
+            value: AngleUnit::Degrees(T::from(i)),
+        }
+    }
+}
+
 impl<T: Default + Clone + Rem<T, Output = T>> Rem<T> for Angle<T> {
     type Output = Self;
 

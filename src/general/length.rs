@@ -4,3 +4,9 @@ use super::Precision;
 
 #[derive(Inspectable, Default, Copy, Clone, Debug)]
 pub struct Length(pub Precision);
+
+impl From<i16> for Length {
+    fn from(i: i16) -> Self {
+        Self(Precision::from(i))
+    }
+}
