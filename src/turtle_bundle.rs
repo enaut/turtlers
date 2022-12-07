@@ -7,6 +7,7 @@ use bevy_prototype_lyon::{
 };
 
 use crate::{
+    builders::{TurtlePlan, WithCommands},
     commands::{DrawElement, MoveCommand, TurtleCommands, TurtleSegment},
     general::length::Length,
     shapes::{self, TurtleColors},
@@ -39,8 +40,11 @@ impl Default for TurtleBundle {
 }
 
 impl TurtleBundle {
-    pub fn set_commands(&mut self, commands: Vec<TurtleSegment>) {
-        self.commands = TurtleCommands::new(commands);
+    pub fn apply_plan(&mut self, plan: TurtlePlan) {
+        self.commands = TurtleCommands::new(plan.get_commands());
+    }
+    pub fn create_plan(&self) -> TurtlePlan {
+        TurtlePlan::new()
     }
 }
 

@@ -13,6 +13,7 @@ use turtle_bundle::{AnimatedTurtle, TurtleBundle};
 
 pub use commands::TurtleCommands;
 
+pub mod builders;
 mod commands;
 mod debug;
 mod drawing;
