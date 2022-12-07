@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Describing the full state of a turtle.
-#[derive(Component, Inspectable, Default)]
+#[derive(Component, Inspectable, Default, Debug)]
 pub struct TurtleState {
     drawing: Vec<TurtleSegment>,
     position: Coordinate,

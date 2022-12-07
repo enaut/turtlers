@@ -6,7 +6,7 @@ pub use turtle::turtle;
 #[derive(Clone, Component, Inspectable)]
 pub struct TurtleShape;
 
-#[derive(Clone, Component, Inspectable, Default)]
+#[derive(Clone, Component, Inspectable, Default, Debug)]
 pub struct TurtleColors {
     color: Color,
     fill_color: Color,

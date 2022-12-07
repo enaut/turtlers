@@ -17,7 +17,7 @@ use crate::{
  * All the possibilities to draw something with turtle. All the commands can get the position, heading,
  * color and fill_color from the turtles state.
  */
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub enum MoveCommand {
     Forward(Length),
     Backward(Length),
@@ -35,7 +35,7 @@ impl Default for MoveCommand {
 }
 /// Different ways to drop breadcrumbs on the way like a dot or a stamp of the turtles shape.
 
-#[derive(Component, Inspectable, Default)]
+#[derive(Component, Inspectable, Default, Debug)]
 pub enum Breadcrumb {
     Dot,
     #[default]
@@ -43,7 +43,7 @@ pub enum Breadcrumb {
 }
 
 /// Different ways that change the orientation of the turtle.
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub enum OrientationCommand {
     Left(Angle<Precision>),
     Right(Angle<Precision>),
@@ -58,7 +58,7 @@ impl Default for OrientationCommand {
 }
 
 /// A combination of all commands that can be used while drawing.
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub enum DrawElement {
     Draw(MoveCommand),
     Move(MoveCommand),
@@ -95,7 +95,7 @@ impl ToAnimationSegment for DrawElement {
     }
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub enum TurtleSegment {
     Single(DrawElement),
     Outline(Vec<DrawElement>),
@@ -119,7 +119,7 @@ impl ToAnimationSegment for TurtleSegment {
         }
     }
 }
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub struct TurtleCommands {
     animation_state: usize,
     commands: Vec<TurtleSegment>,

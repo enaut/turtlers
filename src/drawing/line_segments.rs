@@ -16,7 +16,16 @@ pub struct TurtleDrawLine {
     marker: LineMarker,
 }
 
-#[derive(Component, Default, Inspectable)]
+impl std::fmt::Debug for TurtleDrawLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TurtleDrawLine")
+            .field("name", &self.name)
+            .field("marker", &self.marker)
+            .finish()
+    }
+}
+
+#[derive(Component, Default, Inspectable, Debug)]
 struct LineMarker;
 
 impl TurtleDrawLine {
@@ -45,7 +54,16 @@ pub struct TurtleDrawCircle {
     marker: CircleMarker,
 }
 
-#[derive(Component, Default, Inspectable)]
+impl std::fmt::Debug for TurtleDrawCircle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TurtleDrawCircle")
+            .field("name", &self.name)
+            .field("marker", &self.marker)
+            .finish()
+    }
+}
+
+#[derive(Component, Default, Inspectable, Debug)]
 struct CircleMarker;
 
 impl TurtleDrawCircle {

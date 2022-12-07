@@ -6,7 +6,7 @@ pub mod animation;
 mod line_segments;
 pub(crate) mod run_step;
 
-#[derive(Inspectable, Default)]
+#[derive(Inspectable, Default, Debug)]
 pub enum TurtleGraphElement {
     TurtleLine(TurtleDrawLine),
     TurtleCircle(TurtleDrawCircle),
