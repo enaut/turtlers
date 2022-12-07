@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
+use turtle_lib::builders::Turnable;
 use turtle_lib::{get_a_turtle, TurtlePlugin};
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -19,11 +20,17 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     let mut turtle = get_a_turtle();
-    turtle.forward(10.);
-    turtle.forward(10.);
-    turtle.forward(10.);
-    turtle.forward(10.);
-    turtle.forward(10.);
-    turtle.forward(10.);
+    let mut p = turtle.create_plan();
+    for x in 0..1999 {
+        p.forward(x.into());
+        p.right(45.into());
+        p.forward(30.into());
+        p.left((90 + x).into());
+        p.forward(30.into());
+        p.right(45.into());
+        p.forward(x.into());
+        p.left(91.into());
+    }
+    turtle.apply_plan(p);
     commands.spawn((turtle, Egon {}));
 }
