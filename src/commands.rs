@@ -5,7 +5,7 @@ use crate::{
     drawing::{
         self,
         animation::{
-            draw_straight_segment, move_straight_segment, ToAnimationSegment,
+            draw_straight_segment, move_straight_segment, turtle_turn, ToAnimationSegment,
             TurtleAnimationSegment,
         },
         TurtleGraphElement,
@@ -89,7 +89,12 @@ impl ToAnimationSegment for DrawElement {
                 MoveCommand::Circle { radius, angle } => todo!(),
                 MoveCommand::Goto(coord) => todo!(),
             },
-            DrawElement::Orient(_) => todo!(),
+            DrawElement::Orient(e) => match e {
+                OrientationCommand::Left(angle_to_turn) => turtle_turn(state, -*angle_to_turn),
+                OrientationCommand::Right(angle_to_turn) => turtle_turn(state, *angle_to_turn),
+                OrientationCommand::SetHeading => todo!(),
+                OrientationCommand::LookAt(_) => todo!(),
+            },
             DrawElement::Drip(_) => todo!(),
         }
     }
