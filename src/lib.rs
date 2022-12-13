@@ -21,7 +21,7 @@ pub mod events;
 mod general;
 pub mod shapes;
 mod state;
-mod turtle_bundle;
+pub mod turtle_bundle;
 
 /**
 The turtle plugin is the core of this turtle module.

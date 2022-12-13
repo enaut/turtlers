@@ -10,7 +10,7 @@ use crate::{
         },
         TurtleGraphElement,
     },
-    general::{angle::Angle, length::Length, Coordinate, Precision},
+    general::{angle::Angle, length::Length, Coordinate, Precision, Speed},
     state::TurtleState,
 };
 /**
@@ -145,6 +145,12 @@ impl TurtleCommands {
     }
     pub fn push(&mut self, segment: TurtleSegment) {
         self.commands.push(segment)
+    }
+    pub fn extend(&mut self, segments: Vec<TurtleSegment>) {
+        self.commands.extend(segments.into_iter())
+    }
+    pub fn set_speed(&mut self, speed: Speed) {
+        self.state.set_speed(speed);
     }
 }
 

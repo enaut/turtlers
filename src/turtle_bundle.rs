@@ -9,7 +9,7 @@ use bevy_prototype_lyon::{
 use crate::{
     builders::{TurtlePlan, WithCommands},
     commands::{DrawElement, MoveCommand, TurtleCommands, TurtleSegment},
-    general::length::Length,
+    general::{length::Length, Speed},
     shapes::{self, TurtleColors},
 };
 
@@ -43,6 +43,9 @@ impl TurtleBundle {
     pub fn apply_plan(&mut self, plan: TurtlePlan) {
         self.commands = TurtleCommands::new(plan.get_commands());
     }
+    pub fn extend_plan(&mut self, plan: TurtlePlan) {
+        self.commands.extend(plan.get_commands())
+    }
     pub fn create_plan(&self) -> TurtlePlan {
         TurtlePlan::new()
     }
@@ -54,6 +57,9 @@ impl TurtleBundle {
             MoveCommand::Forward(Length(len)),
         )));
         self
+    }
+    pub fn set_speed(&mut self, speed: Speed) {
+        self.commands.set_speed(speed);
     }
 }
 
