@@ -27,29 +27,52 @@ impl TurtlePlan {
     pub fn new() -> TurtlePlan {
         TurtlePlan { commands: vec![] }
     }
-    pub fn forward(&mut self, length: Length) {
+}
+
+pub trait DirectionalMovement: WithCommands {
+    fn forward<IntoDistance>(&mut self, length: IntoDistance) -> &mut Self
+    where
+        Length: From<IntoDistance>,
+    {
+        let length: Length = length.into();
         self.get_mut_commands()
             .push(TurtleSegment::Single(DrawElement::Draw(
                 crate::commands::MoveCommand::Forward(length),
-            )))
+            )));
+        self
     }
-    pub fn backward(&mut self, length: Precision) {
+    fn backward<IntoDistance>(&mut self, length: IntoDistance) -> &mut Self
+    where
+        Length: From<IntoDistance>,
+    {
+        let length: Length = length.into();
         self.get_mut_commands()
             .push(TurtleSegment::Single(DrawElement::Draw(
-                crate::commands::MoveCommand::Backward(Length(length)),
-            )))
+                crate::commands::MoveCommand::Backward(length),
+            )));
+        self
     }
 }
 
+impl DirectionalMovement for TurtlePlan {}
+
 pub trait Turnable: WithCommands {
-    fn right(&mut self, angle: Angle<Precision>) -> &mut Self {
+    fn right<IntoAngle>(&mut self, angle: IntoAngle) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+    {
+        let angle: Angle<Precision> = angle.into();
         self.get_mut_commands()
             .push(TurtleSegment::Single(DrawElement::Orient(
                 crate::commands::OrientationCommand::Right(angle),
             )));
         self
     }
-    fn left(&mut self, angle: Angle<Precision>) -> &mut Self {
+    fn left<IntoAngle>(&mut self, angle: IntoAngle) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+    {
+        let angle: Angle<Precision> = angle.into();
         self.get_mut_commands()
             .push(TurtleSegment::Single(DrawElement::Orient(
                 crate::commands::OrientationCommand::Left(angle),
