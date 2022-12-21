@@ -2,11 +2,11 @@ use bevy::prelude::Component;
 use bevy_inspector_egui::Inspectable;
 
 use crate::{
+    builders::WithCommands,
     drawing::{
-        self,
         animation::{
-            draw_straight_segment, move_straight_segment, turtle_turn, ToAnimationSegment,
-            TurtleAnimationSegment,
+            draw_circle_segment, draw_straight_segment, move_straight_segment, turtle_turn,
+            ToAnimationSegment, TurtleAnimationSegment,
         },
         TurtleGraphElement,
     },
@@ -80,7 +80,9 @@ impl ToAnimationSegment for DrawElement {
             DrawElement::Draw(e) => match e {
                 MoveCommand::Forward(length) => draw_straight_segment(state, length.0),
                 MoveCommand::Backward(length) => draw_straight_segment(state, -length.0),
-                MoveCommand::Circle { radius, angle } => todo!(),
+                MoveCommand::Circle { radius, angle } => {
+                    draw_circle_segment(state, *radius, *angle)
+                }
                 MoveCommand::Goto(coord) => todo!(),
             },
             DrawElement::Move(e) => match e {
@@ -168,5 +170,15 @@ impl Iterator for TurtleCommands {
         } else {
             None
         }
+    }
+}
+
+impl WithCommands for TurtleCommands {
+    fn get_mut_commands(&mut self) -> &mut Vec<TurtleSegment> {
+        &mut self.commands
+    }
+
+    fn get_commands(self) -> Vec<TurtleSegment> {
+        self.commands
     }
 }

@@ -10,3 +10,10 @@ impl From<i16> for Length {
         Self(Precision::from(i))
     }
 }
+
+impl From<f32> for Length {
+    fn from(i: f32) -> Self {
+        #[allow(clippy::useless_conversion)]
+        Self(Precision::from(i))
+    }
+}

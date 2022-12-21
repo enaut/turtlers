@@ -1,5 +1,7 @@
+use std::ops::Neg;
+
 use crate::{
-    commands::{DrawElement, TurtleSegment},
+    commands::{DrawElement, MoveCommand, TurtleSegment},
     general::{angle::Angle, length::Length, Precision},
 };
 
@@ -82,3 +84,38 @@ pub trait Turnable: WithCommands {
 }
 
 impl Turnable for TurtlePlan {}
+
+pub trait CurvedMovement: WithCommands {
+    fn circle<IntoAngle, IntoDistance>(
+        &mut self,
+        radius: IntoDistance,
+        extend: IntoAngle,
+    ) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+        Length: From<IntoDistance>,
+    {
+        let angle: Angle<Precision> = extend.into();
+        let radius: Length = radius.into();
+        self.get_mut_commands()
+            .push(TurtleSegment::Single(DrawElement::Draw(
+                MoveCommand::Circle { radius, angle },
+            )));
+        self
+    }
+    fn circle_right<IntoAngle, IntoDistance: Neg + Neg<Output = IntoDistance>>(
+        &mut self,
+        radius: IntoDistance,
+        extend: IntoAngle,
+    ) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+        Length: From<IntoDistance>,
+    {
+        self.circle(-radius, extend);
+        println!("Warning: circle with right arc not working yet...");
+        self
+    }
+}
+
+impl CurvedMovement for TurtlePlan {}

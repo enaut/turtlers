@@ -1,18 +1,15 @@
 mod circle_lens;
 mod line_lens;
 
-use bevy::{
-    prelude::{Quat, Transform, Vec2, Vec3},
-    render::render_resource::encase::rts_array::Length,
-};
+use bevy::prelude::{Quat, Transform, Vec2, Vec3};
 use bevy_prototype_lyon::prelude::Path;
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformRotateZLens},
-    Animator, EaseFunction, RepeatCount, RepeatStrategy, Tween,
+    Animator, EaseFunction, Tween,
 };
 
 use crate::{
-    general::{angle::Angle, Coordinate, Precision},
+    general::{angle::Angle, length::Length, Coordinate, Precision},
     state::TurtleState,
 };
 
@@ -85,9 +82,25 @@ pub fn draw_straight_segment(state: &mut TurtleState, length: Precision) -> Turt
     }
 }
 
+pub fn draw_circle_segment(
+    state: &mut TurtleState,
+    radius: Length,
+    angle: Angle<Precision>,
+) -> TurtleAnimationSegment {
+    let animation = MoveCircleTurtleAnimation::new(state, radius, angle);
+    let line_animation = MoveCircleLineAnimation::new(state, radius, angle);
+    state.set_position(animation.end);
+    state.set_heading(animation.end_heading);
+    TurtleAnimationSegment {
+        turtle_animation: Some(animation.animation),
+        line_segment: Some(TurtleGraphElement::TurtleCircle(line_animation.line)),
+        line_animation: Some(Animator::new(line_animation.animation)),
+    }
+}
+
 struct MoveStraightLineAnimation {
-    start: Coordinate,
-    end: Coordinate,
+    _start: Coordinate,
+    _end: Coordinate,
     line: TurtleDrawLine,
     animation: Tween<Path>,
 }
@@ -95,7 +108,7 @@ struct MoveStraightLineAnimation {
 impl MoveStraightLineAnimation {
     fn new(
         state: &TurtleState,
-        length: Precision,
+        _length: Precision,
         turtle_animation: &MoveStraightTurtleAnimation,
     ) -> Self {
         let line = TurtleDrawLine::new(turtle_animation.start, turtle_animation.end);
@@ -107,8 +120,8 @@ impl MoveStraightLineAnimation {
         /* .with_repeat_strategy(RepeatStrategy::MirroredRepeat)
         .with_repeat_count(RepeatCount::Infinite)*/;
         Self {
-            start: turtle_animation.start,
-            end: turtle_animation.end,
+            _start: turtle_animation.start,
+            _end: turtle_animation.end,
             line,
             animation: line_animation,
         }
@@ -142,63 +155,88 @@ impl MoveStraightTurtleAnimation {
     }
 }
 
-pub fn turtle_circle(
-    state: &mut TurtleState,
-    radius: Precision,
-    angle: Angle<Precision>,
-) -> TurtleAnimationSegment {
-    let radii = Vec2::ONE * radius.abs();
-    let left_right = Angle::degrees(if radius >= 0. { 90. } else { -90. });
-    let center = state.position()
-        + (Vec2::new(radius.abs(), 0.).rotate(Vec2::from_angle(
-            ((state.heading() + left_right).to_radians()).value(),
-        )));
+struct MoveCircleLineAnimation {
+    _start: Coordinate,
+    _end: Coordinate,
+    line: TurtleDrawCircle,
+    animation: Tween<Path>,
+}
 
-    let turtle_movement_animation = Tween::new(
-        EaseFunction::QuadraticInOut,
-        state.animation_duration(),
-        CircleMovementLens {
-            start: Transform {
-                translation: state.position().extend(0.),
-                rotation: Quat::from_rotation_z(state.heading().to_radians().value()),
-                scale: Vec3::ONE,
+impl MoveCircleLineAnimation {
+    fn new(state: &TurtleState, radius: Length, angle: Angle<Precision>) -> Self {
+        let radii = Vec2::ONE * radius.0.abs();
+        let start = state.position();
+        let left_right = Angle::degrees(if radius.0 >= 0. { 90. } else { -90. });
+        let center = state.position()
+            + (Vec2::new(radius.0.abs(), 0.).rotate(Vec2::from_angle(
+                ((state.heading() + left_right).to_radians()).value(),
+            )));
+        let end_pos = center
+            + Vec2::new(radius.0.abs(), 0.).rotate(Vec2::from_angle(
+                (state.heading() + angle - left_right).to_radians().value(),
+            ));
+
+        let line =
+            TurtleDrawCircle::new(center, radii, Angle::degrees(0.), state.position(), end_pos);
+        let line_animator = Tween::new(
+            EaseFunction::QuadraticInOut,
+            state.animation_duration(),
+            CircleAnimationLens {
+                start_pos: state.position(),
+                center,
+                radii,
+                start: Angle::degrees(0.),
+                end: if radius.0 > 0. { angle } else { -angle },
             },
-            end: angle,
-            center,
-        },
-    )
-    .with_completed_event(state.segment_index());
-    let end_pos = center
-        + Vec2::new(radius.abs(), 0.).rotate(Vec2::from_angle(
-            (state.heading() + angle - left_right).to_radians().value(),
-        ));
-    let line = /* if state.drawing { */
-        TurtleGraphElement::TurtleCircle(TurtleDrawCircle::new(
-            center,
-            radii,
-            Angle::degrees(0.),
-            state.position(),
-            end_pos,
-        ))
-    /* } else {
-        TurtleGraphElement::Noop
-    } */;
-    let line_animator = Animator::new(Tween::new(
-        EaseFunction::QuadraticInOut,
-        state.animation_duration(),
-        CircleAnimationLens {
-            start_pos: state.position(),
-            center,
-            radii,
-            start: Angle::degrees(0.),
-            end: angle,
-        },
-    ));
-    state.set_position(end_pos);
-    state.set_heading(state.heading() + angle);
-    TurtleAnimationSegment {
-        turtle_animation: Some(turtle_movement_animation),
-        line_segment: Some(line),
-        line_animation: Some(line_animator),
+        );
+        Self {
+            _start: start,
+            _end: end_pos,
+            line,
+            animation: line_animator,
+        }
+    }
+}
+
+struct MoveCircleTurtleAnimation {
+    _start: Coordinate,
+    end: Coordinate,
+    end_heading: Angle<Precision>,
+    animation: Tween<Transform>,
+}
+
+impl MoveCircleTurtleAnimation {
+    fn new(state: &TurtleState, radius: Length, angle: Angle<Precision>) -> Self {
+        let start = state.position();
+        let left_right = Angle::degrees(if radius.0 >= 0. { 90. } else { -90. });
+        let center = state.position()
+            + (Vec2::new(radius.0.abs(), 0.).rotate(Vec2::from_angle(
+                ((state.heading() + left_right).to_radians()).value(),
+            )));
+        let end_heading = state.heading() + if radius.0 > 0. { angle } else { -angle };
+        let end_pos = center
+            + Vec2::new(radius.0.abs(), 0.).rotate(Vec2::from_angle(
+                (state.heading() + angle - left_right).to_radians().value(),
+            ));
+        let turtle_movement_animation = Tween::new(
+            EaseFunction::QuadraticInOut,
+            state.animation_duration(),
+            CircleMovementLens {
+                start: Transform {
+                    translation: state.position().extend(0.),
+                    rotation: Quat::from_rotation_z(state.heading().to_radians().value()),
+                    scale: Vec3::ONE,
+                },
+                end: if radius.0 > 0. { angle } else { -angle },
+                center,
+            },
+        )
+        .with_completed_event(state.segment_index() as u64);
+        Self {
+            _start: start,
+            end: end_pos,
+            end_heading,
+            animation: turtle_movement_animation,
+        }
     }
 }

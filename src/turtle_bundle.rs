@@ -7,9 +7,9 @@ use bevy_prototype_lyon::{
 };
 
 use crate::{
-    builders::{TurtlePlan, WithCommands},
-    commands::{DrawElement, MoveCommand, TurtleCommands, TurtleSegment},
-    general::{length::Length, Speed},
+    builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands},
+    commands::{TurtleCommands, TurtleSegment},
+    general::Speed,
     shapes::{self, TurtleColors},
 };
 
@@ -52,12 +52,6 @@ impl TurtleBundle {
 }
 
 impl TurtleBundle {
-    pub fn forward(&mut self, len: f32) -> &mut Self {
-        self.commands.push(TurtleSegment::Single(DrawElement::Draw(
-            MoveCommand::Forward(Length(len)),
-        )));
-        self
-    }
     pub fn set_speed(&mut self, speed: Speed) {
         self.commands.set_speed(speed);
     }
@@ -83,3 +77,17 @@ impl DerefMut for AnimatedTurtle {
         &mut self.turtle_bundle
     }
 }
+
+impl WithCommands for TurtleBundle {
+    fn get_mut_commands(&mut self) -> &mut Vec<TurtleSegment> {
+        self.commands.get_mut_commands()
+    }
+
+    fn get_commands(self) -> Vec<TurtleSegment> {
+        self.commands.get_commands()
+    }
+}
+
+impl DirectionalMovement for TurtleBundle {}
+impl Turnable for TurtleBundle {}
+impl CurvedMovement for TurtleBundle {}
