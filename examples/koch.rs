@@ -23,32 +23,22 @@ fn setup(mut commands: Commands) {
     let mut turtle = get_a_turtle();
     turtle.set_speed(1);
     for _x in 0..3 {
-        koch(4, &mut turtle);
-        let mut left = turtle.create_plan();
-        left.right(120);
-        turtle.extend_plan(left);
+        koch(3, &mut turtle);
+        turtle.right(120);
     }
     commands.spawn((turtle, Egon {}));
 }
 
 fn koch(depth: u32, turtle: &mut AnimatedTurtle) {
     if depth == 0 {
-        let mut forward = turtle.create_plan();
-        forward.forward(10);
-        turtle.extend_plan(forward)
+        turtle.forward(10);
     } else {
         koch(depth - 1, turtle);
-        let mut left = turtle.create_plan();
-        left.left(60);
-        turtle.extend_plan(left);
+        turtle.left(60);
         koch(depth - 1, turtle);
-        let mut right = turtle.create_plan();
-        right.right(120);
-        turtle.extend_plan(right);
+        turtle.right(120);
         koch(depth - 1, turtle);
-        let mut left = turtle.create_plan();
-        left.left(60);
-        turtle.extend_plan(left);
+        turtle.left(60);
         koch(depth - 1, turtle);
     }
 }
