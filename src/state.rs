@@ -1,7 +1,9 @@
 use std::{cmp::max, time::Duration};
 
-use bevy::prelude::{Color, Component, Transform};
-use bevy_inspector_egui::Inspectable;
+use bevy::{
+    prelude::{Component, Transform},
+    reflect::Reflect,
+};
 
 use crate::{
     commands::TurtleSegment,
@@ -10,7 +12,7 @@ use crate::{
 };
 
 /// Describing the full state of a turtle.
-#[derive(Component, Inspectable, Default, Debug)]
+#[derive(Component, Reflect, Default, Debug, Clone)]
 pub struct TurtleState {
     drawing: Vec<TurtleSegment>,
     position: Coordinate,

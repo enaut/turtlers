@@ -1,12 +1,14 @@
 mod turtle;
-use bevy::prelude::{Color, Component};
-use bevy_inspector_egui::Inspectable;
+use bevy::{
+    prelude::{Color, Component},
+    reflect::Reflect,
+};
 pub use turtle::turtle;
 
-#[derive(Clone, Component, Inspectable)]
+#[derive(Clone, Component, Reflect)]
 pub struct TurtleShape;
 
-#[derive(Clone, Component, Inspectable, Default, Debug)]
+#[derive(Clone, Component, Reflect, Default, Debug)]
 pub struct TurtleColors {
     color: Color,
     fill_color: Color,

@@ -7,6 +7,10 @@ use crate::{
 
 #[derive(Default, Debug)]
 pub struct TurtlePlan {
+    /**
+     * A turtle Plan contains the segments of a turtle drawing.
+     * The segments in turn contain the commands to draw the graph.
+     */
     commands: Vec<TurtleSegment>,
 }
 
@@ -119,3 +123,133 @@ pub trait CurvedMovement: WithCommands {
 }
 
 impl CurvedMovement for TurtlePlan {}
+
+pub trait StopLine<T>
+where
+    T: WithCommands,
+{
+    fn pen_up(self) -> InvisibleLinesPlan<T>;
+}
+
+impl StopLine<TurtlePlan> for TurtlePlan {
+    fn pen_up(self) -> InvisibleLinesPlan<TurtlePlan> {
+        {
+            InvisibleLinesPlan {
+                before: self,
+                commands: vec![],
+            }
+        }
+    }
+}
+
+pub trait StartLine<T> {
+    fn pen_down(self) -> T;
+}
+
+impl<T> StartLine<T> for InvisibleLinesPlan<T>
+where
+    T: WithCommands,
+{
+    fn pen_down(mut self) -> T {
+        self.before.get_mut_commands().append(&mut self.commands);
+        self.before
+    }
+}
+
+pub struct InvisibleLinesPlan<T: WithCommands> {
+    before: T,
+    commands: Vec<TurtleSegment>,
+}
+
+impl<T> WithCommands for InvisibleLinesPlan<T>
+where
+    T: WithCommands,
+{
+    fn get_mut_commands(&mut self) -> &mut Vec<TurtleSegment> {
+        &mut self.commands
+    }
+
+    fn get_commands(self) -> Vec<TurtleSegment> {
+        self.commands
+    }
+}
+
+impl<T> InvisibleLinesPlan<T>
+where
+    T: WithCommands,
+{
+    pub fn new(before: T) -> Self {
+        InvisibleLinesPlan {
+            before,
+            commands: vec![],
+        }
+    }
+}
+
+impl Turnable for InvisibleLinesPlan<TurtlePlan> {}
+
+impl<T> DirectionalMovement for InvisibleLinesPlan<T>
+where
+    T: WithCommands,
+{
+    fn forward<IntoDistance>(&mut self, length: IntoDistance) -> &mut Self
+    where
+        Length: From<IntoDistance>,
+    {
+        let length: Length = length.into();
+        self.get_mut_commands()
+            .push(TurtleSegment::Single(DrawElement::Move(
+                crate::commands::MoveCommand::Forward(length),
+            )));
+        self
+    }
+
+    fn backward<IntoDistance>(&mut self, length: IntoDistance) -> &mut Self
+    where
+        Length: From<IntoDistance>,
+    {
+        let length: Length = length.into();
+        self.get_mut_commands()
+            .push(TurtleSegment::Single(DrawElement::Move(
+                crate::commands::MoveCommand::Backward(length),
+            )));
+        self
+    }
+}
+
+impl<T> CurvedMovement for InvisibleLinesPlan<T>
+where
+    T: WithCommands,
+{
+    fn circle<IntoAngle, IntoDistance>(
+        &mut self,
+        radius: IntoDistance,
+        extend: IntoAngle,
+    ) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+        Length: From<IntoDistance>,
+    {
+        let angle: Angle<Precision> = extend.into();
+        let radius: Length = radius.into();
+        self.get_mut_commands()
+            .push(TurtleSegment::Single(DrawElement::Move(
+                MoveCommand::Circle { radius, angle },
+            )));
+        self
+    }
+
+    fn circle_right<IntoAngle, IntoDistance: Neg + Neg<Output = IntoDistance>>(
+        &mut self,
+        radius: IntoDistance,
+        extend: IntoAngle,
+    ) -> &mut Self
+    where
+        Angle<Precision>: From<IntoAngle>,
+        Length: From<IntoDistance>,
+    {
+        self.circle(-radius, extend);
+        println!("Warning: circle with right arc not working yet...");
+        self
+    }
+}

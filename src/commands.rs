@@ -1,5 +1,7 @@
-use bevy::prelude::Component;
-use bevy_inspector_egui::Inspectable;
+use bevy::{
+    prelude::Component,
+    reflect::{FromReflect, Reflect},
+};
 
 use crate::{
     builders::WithCommands,
@@ -17,7 +19,7 @@ use crate::{
  * All the possibilities to draw something with turtle. All the commands can get the position, heading,
  * color and fill_color from the turtles state.
  */
-#[derive(Component, Inspectable, Debug)]
+#[derive(Component, Reflect, FromReflect, Debug, Clone)]
 pub enum MoveCommand {
     Forward(Length),
     Backward(Length),
@@ -35,7 +37,7 @@ impl Default for MoveCommand {
 }
 /// Different ways to drop breadcrumbs on the way like a dot or a stamp of the turtles shape.
 
-#[derive(Component, Inspectable, Default, Debug)]
+#[derive(Component, Reflect, FromReflect, Default, Debug, Clone)]
 pub enum Breadcrumb {
     Dot,
     #[default]
@@ -43,7 +45,7 @@ pub enum Breadcrumb {
 }
 
 /// Different ways that change the orientation of the turtle.
-#[derive(Component, Inspectable, Debug)]
+#[derive(Component, Reflect, FromReflect, Debug, Clone)]
 pub enum OrientationCommand {
     Left(Angle<Precision>),
     Right(Angle<Precision>),
@@ -58,7 +60,7 @@ impl Default for OrientationCommand {
 }
 
 /// A combination of all commands that can be used while drawing.
-#[derive(Component, Inspectable, Debug)]
+#[derive(Component, Reflect, FromReflect, Debug, Clone)]
 pub enum DrawElement {
     Draw(MoveCommand),
     Move(MoveCommand),
@@ -102,7 +104,7 @@ impl ToAnimationSegment for DrawElement {
     }
 }
 
-#[derive(Component, Inspectable, Debug)]
+#[derive(Component, Reflect, FromReflect, Debug, Clone)]
 pub enum TurtleSegment {
     Single(DrawElement),
     Outline(Vec<DrawElement>),
@@ -126,7 +128,7 @@ impl ToAnimationSegment for TurtleSegment {
         }
     }
 }
-#[derive(Component, Inspectable, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct TurtleCommands {
     animation_state: usize,
     commands: Vec<TurtleSegment>,

@@ -1,8 +1,8 @@
-use bevy_inspector_egui::Inspectable;
+use bevy::reflect::{FromReflect, Reflect};
 
 use super::Precision;
 
-#[derive(Inspectable, Default, Copy, Clone, Debug)]
+#[derive(Reflect, FromReflect, Default, Copy, Clone, Debug)]
 pub struct Length(pub Precision);
 
 impl From<i16> for Length {

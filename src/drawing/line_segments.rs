@@ -1,5 +1,7 @@
-use bevy::prelude::{Bundle, Color, Component, Name, Transform, Vec2};
-use bevy_inspector_egui::Inspectable;
+use bevy::{
+    prelude::{Bundle, Color, Component, Name, Transform, Vec2},
+    reflect::{FromReflect, Reflect},
+};
 use bevy_prototype_lyon::{
     entity::ShapeBundle,
     prelude::{DrawMode, FillMode, GeometryBuilder, PathBuilder, StrokeMode},
@@ -8,9 +10,9 @@ use bevy_prototype_lyon::{
 
 use crate::general::{angle::Angle, Precision};
 
-#[derive(Bundle, Inspectable, Default)]
+#[derive(Bundle, Reflect, FromReflect, Default)]
 pub struct TurtleDrawLine {
-    #[inspectable(ignore)]
+    #[reflect(ignore)]
     line: ShapeBundle,
     name: Name,
     marker: LineMarker,
@@ -25,7 +27,7 @@ impl std::fmt::Debug for TurtleDrawLine {
     }
 }
 
-#[derive(Component, Default, Inspectable, Debug)]
+#[derive(Component, Default, Reflect, FromReflect, Debug, Clone, Copy)]
 struct LineMarker;
 
 impl TurtleDrawLine {
@@ -45,10 +47,10 @@ impl TurtleDrawLine {
     }
 }
 
-#[derive(Bundle, Inspectable, Default)]
+#[derive(Bundle, Reflect, FromReflect, Default)]
 
 pub struct TurtleDrawCircle {
-    #[inspectable(ignore)]
+    #[reflect(ignore)]
     line: ShapeBundle,
     name: Name,
     marker: CircleMarker,
@@ -63,7 +65,7 @@ impl std::fmt::Debug for TurtleDrawCircle {
     }
 }
 
-#[derive(Component, Default, Inspectable, Debug)]
+#[derive(Component, Default, Reflect, FromReflect, Debug, Clone)]
 struct CircleMarker;
 
 impl TurtleDrawCircle {

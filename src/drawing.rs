@@ -1,4 +1,4 @@
-use bevy_inspector_egui::Inspectable;
+use bevy::reflect::{FromReflect, Reflect};
 
 pub use self::line_segments::{TurtleDrawCircle, TurtleDrawLine};
 
@@ -6,7 +6,7 @@ pub mod animation;
 mod line_segments;
 pub(crate) mod run_step;
 
-#[derive(Inspectable, Default, Debug)]
+#[derive(Reflect, FromReflect, Default, Debug)]
 pub enum TurtleGraphElement {
     TurtleLine(TurtleDrawLine),
     TurtleCircle(TurtleDrawCircle),

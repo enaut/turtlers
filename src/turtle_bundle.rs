@@ -7,7 +7,10 @@ use bevy_prototype_lyon::{
 };
 
 use crate::{
-    builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands},
+    builders::{
+        CurvedMovement, DirectionalMovement, InvisibleLinesPlan, StopLine, Turnable, TurtlePlan,
+        WithCommands,
+    },
     commands::{TurtleCommands, TurtleSegment},
     general::Speed,
     shapes::{self, TurtleColors},
@@ -85,6 +88,13 @@ impl WithCommands for TurtleBundle {
 
     fn get_commands(self) -> Vec<TurtleSegment> {
         self.commands.get_commands()
+    }
+}
+impl StopLine<TurtleBundle> for TurtleBundle {
+    fn pen_up(self) -> crate::builders::InvisibleLinesPlan<TurtleBundle> {
+        {
+            InvisibleLinesPlan::new(self)
+        }
     }
 }
 

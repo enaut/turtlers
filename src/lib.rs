@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::close_on_esc};
-use bevy_inspector_egui::RegisterInspectable;
 use bevy_prototype_lyon::prelude::{Path, ShapePlugin};
 use bevy_tweening::{
     component_animator_system, lens::TransformScaleLens, Animator, EaseFunction, Tween,
@@ -57,8 +56,8 @@ impl Plugin for TurtlePlugin {
         .add_system(component_animator_system::<Path>)
         .add_system(close_on_esc)
         .add_system(draw_lines)
-        .register_inspectable::<TurtleColors>()
-        .register_inspectable::<TurtleCommands>();
+        .register_type::<TurtleColors>()
+        .register_type::<TurtleCommands>();
     }
 }
 
