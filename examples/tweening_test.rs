@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::{Inspectable, InspectorPlugin};
 
+use bevy_inspector_egui::prelude::*;
 use bevy_tweening::{lens::*, *};
 
 fn main() {
@@ -17,15 +17,14 @@ fn main() {
         }))
         .add_system(bevy::window::close_on_esc)
         .add_plugin(TweeningPlugin)
-        .add_plugin(InspectorPlugin::<Options>::new())
         .add_startup_system(setup)
         .add_system(update_animation_speed)
+        .register_type::<Options>()
         .run();
 }
 
-#[derive(Copy, Clone, PartialEq, Inspectable, Resource)]
+#[derive(Copy, Clone, PartialEq, Reflect, Resource)]
 struct Options {
-    #[inspectable(min = 0.01, max = 100.)]
     speed: f32,
 }
 

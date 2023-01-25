@@ -1,12 +1,11 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use turtle_lib::builders::{DirectionalMovement, Turnable};
 use turtle_lib::turtle_bundle::AnimatedTurtle;
 use turtle_lib::{get_a_turtle, TurtlePlugin};
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
-#[derive(Component, Inspectable)]
+#[derive(Component, Reflect)]
 struct Egon {}
 
 fn main() {
