@@ -1,26 +1,25 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use turtle_lib::builders::{CurvedMovement, DirectionalMovement, Turnable};
 use turtle_lib::{get_a_turtle, TurtlePlugin};
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
-#[derive(Component, Inspectable)]
+#[derive(Component, Reflect)]
 struct Egon {}
 
 fn main() {
     App::new()
-        .add_plugin(TurtlePlugin)
-        .add_startup_system(setup)
+    .add_plugins(TurtlePlugin)
+    .add_systems(Startup, setup)
         //.add_system(plan)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugins(LogDiagnosticsPlugin::default())
+    .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .run();
 }
 
 fn setup(mut commands: Commands) {
     let mut turtle = get_a_turtle();
-    turtle.set_speed(1000);
+    turtle.set_speed(0);
     turtle.circle(50, 90);
     turtle.circle_right(50, 180);
     turtle.circle(50, 90);

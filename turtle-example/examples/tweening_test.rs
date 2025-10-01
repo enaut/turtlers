@@ -1,24 +1,25 @@
 use bevy::prelude::*;
 
-use bevy_inspector_egui::prelude::*;
-use bevy_tweening::{lens::*, *};
+// Note: bevy_inspector_egui and bevy_tweening are not yet fully compatible with Bevy 0.17
+// This example is disabled until they are updated
+// use bevy_inspector_egui::prelude::*;
+// use bevy_tweening::{lens::*, *};
 
 fn main() {
     App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "TransformPositionLens".to_string(),
-                width: 1400.,
-                height: 600.,
+                resolution: (1400, 600).into(),
                 present_mode: bevy::window::PresentMode::Fifo, // vsync
                 ..default()
-            },
+            }),
             ..default()
         }))
-        .add_system(bevy::window::close_on_esc)
-        .add_plugin(TweeningPlugin)
-        .add_startup_system(setup)
-        .add_system(update_animation_speed)
+        // .add_systems(Update, bevy::window::close_on_esc)
+        // .add_plugins(TweeningPlugin)
+        .add_systems(Startup, setup)
+        // .add_systems(Update, update_animation_speed)
         .register_type::<Options>()
         .run();
 }
@@ -35,8 +36,12 @@ impl Default for Options {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
+    // NOTE: This example is disabled because bevy_tweening is not yet compatible with Bevy 0.17
+    // Once bevy_tweening is updated, uncomment the code below
+    
+    /*
     let size = 25.;
 
     let spacing = 1.5;
@@ -98,12 +103,9 @@ fn setup(mut commands: Commands) {
         );
 
         commands.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::RED,
-                    custom_size: Some(Vec2::new(size, size)),
-                    ..default()
-                },
+            Sprite {
+                color: Color::srgb(1.0, 0.0, 0.0),
+                custom_size: Some(Vec2::new(size, size)),
                 ..default()
             },
             Animator::new(tween),
@@ -111,9 +113,12 @@ fn setup(mut commands: Commands) {
 
         x += size * spacing;
     }
+    */
 }
 
-fn update_animation_speed(options: Res<Options>, mut animators: Query<&mut Animator<Transform>>) {
+fn update_animation_speed(_options: Res<Options> /*, mut animators: Query<&mut Animator<Transform>>*/) {
+    // NOTE: This function is disabled because bevy_tweening is not yet compatible with Bevy 0.17
+    /*
     if !options.is_changed() {
         return;
     }
@@ -121,4 +126,5 @@ fn update_animation_speed(options: Res<Options>, mut animators: Query<&mut Anima
     for mut animator in animators.iter_mut() {
         animator.set_speed(options.speed);
     }
+    */
 }

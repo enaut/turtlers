@@ -10,17 +10,17 @@ struct Egon {}
 
 fn main() {
     App::new()
-        .add_plugin(TurtlePlugin)
-        .add_startup_system(setup)
-        //.add_system(plan)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(TurtlePlugin)
+        .add_systems(Startup, setup)
+        //.add_systems(Update, plan)
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .run();
 }
 
 fn setup(mut commands: Commands) {
     let mut turtle = get_a_turtle();
-    turtle.set_speed(500);
+    turtle.set_speed(1000);
     stern(&mut turtle);
 
     commands.spawn((turtle, Egon {}));

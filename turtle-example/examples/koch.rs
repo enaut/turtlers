@@ -10,11 +10,11 @@ struct Egon {}
 
 fn main() {
     App::new()
-        .add_plugin(TurtlePlugin)
-        .add_startup_system(setup)
-        //.add_system(plan)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(TurtlePlugin)
+        .add_systems(Startup, setup)
+        //.add_systems(Update, plan)
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .run();
 }
 
@@ -22,7 +22,7 @@ fn setup(mut commands: Commands) {
     let mut turtle = get_a_turtle();
     turtle.set_speed(1);
     for _x in 0..3 {
-        koch(3, &mut turtle);
+        koch(4, &mut turtle);
         turtle.right(120);
     }
     commands.spawn((turtle, Egon {}));

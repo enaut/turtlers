@@ -1,17 +1,14 @@
-[workspace]
-resolver = "2"
+[package]
+name = "turtle-example"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 
-members = [
-    "turtle-lib",
-    "turtle-example",
-]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
-# Enable a small amount of optimization in debug mode
-[profile.dev]
-opt-level = 1
-
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
-[profile.dev.package."*"]
-opt-level = 3
-
+[dependencies]
+bevy = { workspace = true, features = ["wayland"] }
+bevy_prototype_lyon = { workspace = true }
+num-traits = { workspace = true }
+rand = { workspace = true }
+turtle-lib = { path = "../turtle-lib" }
