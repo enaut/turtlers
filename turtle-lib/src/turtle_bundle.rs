@@ -1,9 +1,11 @@
 use std::ops::{Deref, DerefMut};
 
-use bevy::prelude::{Bundle, Color, Name, Transform};
+use bevy::prelude::{Bundle, Color, Name};
 use bevy_prototype_lyon::{
-    entity::ShapeBundle,
-    prelude::{DrawMode, FillMode, GeometryBuilder, StrokeMode},
+    draw::{Fill, Stroke},
+    entity::Shape,
+    geometry::ShapeBuilder,
+    prelude::ShapeBuilderBase as _,
 };
 
 use crate::{
@@ -21,7 +23,7 @@ pub struct TurtleBundle {
     colors: TurtleColors,
     pub commands: TurtleCommands,
     name: Name,
-    shape: ShapeBundle,
+    shape: Shape,
 }
 
 impl Default for TurtleBundle {
@@ -30,14 +32,10 @@ impl Default for TurtleBundle {
             colors: TurtleColors::default(),
             commands: TurtleCommands::new(vec![]),
             name: Name::new("Turtle"),
-            shape: GeometryBuilder::build_as(
-                &shapes::turtle(),
-                DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::MIDNIGHT_BLUE),
-                    outline_mode: StrokeMode::new(Color::BLACK, 1.0),
-                },
-                Transform::IDENTITY,
-            ),
+            shape: ShapeBuilder::with(&shapes::turtle())
+                .fill(Fill::color(Color::srgb(0.098, 0.098, 0.439)))
+                .stroke(Stroke::new(Color::srgb(0.0, 0.0, 0.0), 1.0))
+                .build(),
         }
     }
 }
@@ -62,7 +60,10 @@ impl TurtleBundle {
 
 #[derive(Bundle)]
 pub struct AnimatedTurtle {
+    #[cfg(feature = "tweening")]
     pub animator: bevy_tweening::Animator<bevy::prelude::Transform>,
+    #[cfg(not(feature = "tweening"))]
+    pub animator: (),
     pub turtle_bundle: TurtleBundle,
     pub turtle_shape: shapes::TurtleShape,
 }

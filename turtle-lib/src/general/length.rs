@@ -1,8 +1,8 @@
-use bevy::reflect::{FromReflect, Reflect};
+use bevy::reflect::Reflect;
 
 use super::Precision;
 
-#[derive(Reflect, FromReflect, Default, Copy, Clone, Debug)]
+#[derive(Reflect, Default, Copy, Clone, Debug)]
 pub struct Length(pub Precision);
 
 impl From<i16> for Length {

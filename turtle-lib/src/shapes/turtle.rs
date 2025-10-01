@@ -1,11 +1,11 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::Vec2;
-use bevy_prototype_lyon::prelude::{Path, PathBuilder};
+use bevy_prototype_lyon::prelude::ShapePath;
 
 use crate::general::Precision;
 
-pub fn turtle() -> Path {
+pub fn turtle() -> ShapePath {
     let polygon: &[[Precision; 2]; 23] = &[
         [-2.5, 14.0],
         [-1.25, 10.0],
@@ -31,16 +31,16 @@ pub fn turtle() -> Path {
         [1.25, 10.0],
         [2.5, 14.0],
     ];
-    let mut turtle_path = PathBuilder::new();
-    turtle_path.line_to(Vec2::new(1.0, 1.0));
-    turtle_path.line_to(Vec2::new(-1.0, 1.0));
-    turtle_path.line_to(Vec2::new(-1.0, -1.0));
-    turtle_path.line_to(Vec2::new(1.0, -1.0));
-    turtle_path.close();
-    turtle_path.move_to(Vec2::new(0.0, 16.0).rotate(Vec2::from_angle(-PI / 2.)));
+    let mut turtle_path = ShapePath::new()
+        .line_to(Vec2::new(1.0, 1.0))
+        .line_to(Vec2::new(-1.0, 1.0))
+        .line_to(Vec2::new(-1.0, -1.0))
+        .line_to(Vec2::new(1.0, -1.0))
+        .close()
+        .move_to(Vec2::new(0.0, 16.0).rotate(Vec2::from_angle(-PI / 2.)));
+    
     for coord in polygon {
-        turtle_path.line_to(Vec2::from_array(*coord).rotate(Vec2::from_angle(-PI / 2.)));
+        turtle_path = turtle_path.line_to(Vec2::from_array(*coord).rotate(Vec2::from_angle(-PI / 2.)));
     }
-    turtle_path.close();
-    turtle_path.build()
+    turtle_path.close()
 }

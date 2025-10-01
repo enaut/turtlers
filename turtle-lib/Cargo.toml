@@ -7,9 +7,15 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy = { workspace = true }
+bevy_prototype_lyon = { workspace = true }
+bevy-inspector-egui = { workspace = true, optional = true }
+bevy_tweening = { workspace = true, optional = true }
+num-traits = { workspace = true }
 
-bevy = { version = "0.9" }
-bevy_prototype_lyon = {version="0.7"}
-bevy-inspector-egui = "0.16"
-num-traits = "0.2"
-bevy_tweening = {version="0.6"}
+[features]
+default = []
+# Enable debug inspector UI (bevy-inspector-egui)
+inspector = ["dep:bevy-inspector-egui"]
+# Enable animations (bevy_tweening)
+tweening = ["dep:bevy_tweening"]

@@ -1,5 +1,6 @@
 use bevy::prelude::{Quat, Transform, Vec2};
-use bevy_prototype_lyon::prelude::{Path, PathBuilder, ShapePath};
+use bevy_prototype_lyon::{path::ShapePath, prelude::*, self as lyon_crate};
+use lyon_crate::entity::Shape;
 use bevy_tweening::Lens;
 
 use crate::general::{angle::Angle, Precision};
@@ -12,12 +13,12 @@ pub(crate) struct CircleAnimationLens {
     pub end: Angle<Precision>,
 }
 
-impl Lens<Path> for CircleAnimationLens {
-    fn lerp(&mut self, target: &mut Path, ratio: f32) {
-        let mut path_builder = PathBuilder::new();
-        path_builder.move_to(self.start_pos);
+impl Lens<Shape> for CircleAnimationLens {
+    fn lerp(&mut self, target: &mut Shape, ratio: f32) {
+    let mut path = ShapePath::new();
+    path = path.move_to(self.start_pos);
         // The center point of the radius, then the radii in x and y direction, then the angle that will be drawn, then the x_rotation ?
-        path_builder.arc(
+        path = path.arc(
             self.center,
             self.radii,
             (self.start + ((self.end - self.start) * ratio))
@@ -25,8 +26,7 @@ impl Lens<Path> for CircleAnimationLens {
                 .value(),
             0.,
         );
-        let line = path_builder.build();
-        *target = ShapePath::build_as(&line);
+        *target = Shape::from(path);
     }
 }
 

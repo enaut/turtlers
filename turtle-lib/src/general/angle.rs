@@ -3,28 +3,28 @@ use std::{
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 
-use bevy::reflect::{FromReflect, Reflect};
+use bevy::reflect::Reflect;
 
 use super::Precision;
 
-#[derive(Reflect, FromReflect, Copy, Clone, Debug, PartialEq, Eq)]
-pub enum AngleUnit<T: Default + Send + Sync + Reflect + Copy + FromReflect> {
+#[derive(Reflect, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AngleUnit<T: Default + Send + Sync + Reflect + Copy> {
     Degrees(T),
     Radians(T),
 }
 
-impl<T: Default + Send + Sync + Reflect + Copy + FromReflect> Default for AngleUnit<T> {
+impl<T: Default + Send + Sync + Reflect + Copy> Default for AngleUnit<T> {
     fn default() -> Self {
         Self::Degrees(Default::default())
     }
 }
 
-#[derive(Reflect, FromReflect, Copy, Default, Clone, Debug, PartialEq, Eq)]
-pub struct Angle<T: Default + Send + Sync + Reflect + Copy + FromReflect> {
+#[derive(Reflect, Copy, Default, Clone, Debug, PartialEq, Eq)]
+pub struct Angle<T: Default + Send + Sync + Reflect + Copy> {
     value: AngleUnit<T>,
 }
 
-impl<T: From<i16> + Default + Send + Sync + Reflect + Copy + FromReflect> From<i16> for Angle<T> {
+impl<T: From<i16> + Default + Send + Sync + Reflect + Copy> From<i16> for Angle<T> {
     fn from(i: i16) -> Self {
         Self {
             value: AngleUnit::Degrees(T::from(i)),
@@ -32,9 +32,7 @@ impl<T: From<i16> + Default + Send + Sync + Reflect + Copy + FromReflect> From<i
     }
 }
 
-impl<T: Default + Send + Sync + Reflect + Clone + Copy + FromReflect + Rem<T, Output = T>> Rem<T>
-    for Angle<T>
-{
+impl<T: Default + Send + Sync + Reflect + Clone + Copy + Rem<T, Output = T>> Rem<T> for Angle<T> {
     type Output = Self;
 
     fn rem(self, rhs: T) -> Self::Output {
@@ -45,9 +43,7 @@ impl<T: Default + Send + Sync + Reflect + Clone + Copy + FromReflect + Rem<T, Ou
     }
 }
 
-impl<T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect + Mul<T, Output = T>> Mul<T>
-    for Angle<T>
-{
+impl<T: Default + Clone + Send + Sync + Reflect + Copy + Mul<T, Output = T>> Mul<T> for Angle<T> {
     type Output = Self;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -70,9 +66,7 @@ impl Angle<Precision> {
         }
     }
 }
-impl<T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect + Div<T, Output = T>> Div<T>
-    for Angle<T>
-{
+impl<T: Default + Clone + Send + Sync + Reflect + Copy + Div<T, Output = T>> Div<T> for Angle<T> {
     type Output = Self;
 
     fn div(self, rhs: T) -> Self::Output {
@@ -83,9 +77,8 @@ impl<T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect + Div<T, Ou
     }
 }
 
-impl<
-        T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect + std::ops::Neg<Output = T>,
-    > Neg for Angle<T>
+impl<T: Default + Clone + Send + Sync + Reflect + Copy + std::ops::Neg<Output = T>> Neg
+    for Angle<T>
 {
     type Output = Self;
 
@@ -97,9 +90,8 @@ impl<
     }
 }
 
-impl<
-        T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect + std::ops::Neg<Output = T>,
-    > Neg for &Angle<T>
+impl<T: Default + Clone + Send + Sync + Reflect + Copy + std::ops::Neg<Output = T>> Neg
+    for &Angle<T>
 {
     type Output = Angle<T>;
 
@@ -111,7 +103,7 @@ impl<
     }
 }
 
-impl<T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect> Angle<T> {
+impl<T: Default + Clone + Send + Sync + Reflect + Copy> Angle<T> {
     pub fn degrees(value: T) -> Angle<T> {
         Self {
             value: AngleUnit::Degrees(value),
@@ -130,7 +122,7 @@ impl<T: Default + Clone + Send + Sync + Reflect + Copy + FromReflect> Angle<T> {
     }
 }
 
-impl<T: Default + Send + Sync + Reflect + Copy + FromReflect + num_traits::float::Float> Angle<T> {
+impl<T: Default + Send + Sync + Reflect + Copy + num_traits::float::Float> Angle<T> {
     pub fn to_radians(self) -> Self {
         match self.value {
             AngleUnit::Degrees(v) => Self {
@@ -149,16 +141,8 @@ impl<T: Default + Send + Sync + Reflect + Copy + FromReflect + num_traits::float
     }
 }
 
-impl<
-        T: Add<Output = T>
-            + Send
-            + Sync
-            + Reflect
-            + Copy
-            + FromReflect
-            + Default
-            + num_traits::float::Float,
-    > Add for Angle<T>
+impl<T: Add<Output = T> + Send + Sync + Reflect + Copy + Default + num_traits::float::Float> Add
+    for Angle<T>
 {
     type Output = Angle<T>;
 
@@ -180,16 +164,8 @@ impl<
     }
 }
 
-impl<
-        T: Sub<Output = T>
-            + Default
-            + Send
-            + Sync
-            + Reflect
-            + Copy
-            + FromReflect
-            + num_traits::float::Float,
-    > Sub for Angle<T>
+impl<T: Sub<Output = T> + Default + Send + Sync + Reflect + Copy + num_traits::float::Float> Sub
+    for Angle<T>
 {
     type Output = Angle<T>;
 

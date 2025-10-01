@@ -1,10 +1,11 @@
-use std::time::Duration;
-
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::close_on_esc};
-use bevy_prototype_lyon::prelude::{Path, ShapePlugin};
+use bevy::{prelude::*, window::WindowResolution};
+#[cfg(feature = "tweening")]
+use bevy_prototype_lyon::entity::Shape;
+use bevy_prototype_lyon::prelude::ShapePlugin;
+#[cfg(feature = "tweening")]
 use bevy_tweening::{
     component_animator_system, lens::TransformScaleLens, Animator, EaseFunction, Tween,
-    TweenCompleted, TweeningPlugin,
+    TweenCompleted,
 };
 use events::DrawingStartedEvent;
 use shapes::{TurtleColors, TurtleShape};
@@ -38,39 +39,42 @@ pub struct TurtlePlugin;
 impl Plugin for TurtlePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "Immigration Game".to_string(),
-                width: 1200.,
-                height: 800.,
-                present_mode: bevy::window::PresentMode::Fifo, // vsync
-                ..Default::default()
-            },
+                resolution: WindowResolution::new(1200, 800),
+                ..default()
+            }),
             ..default()
         }))
-        .add_plugin(debug::DebugPlugin)
-        .add_plugin(ShapePlugin)
-        .add_plugin(TweeningPlugin)
-        .add_event::<DrawingStartedEvent>()
-        .add_startup_system(setup)
-        .add_system(keypresses)
-        .add_system(component_animator_system::<Path>)
-        .add_system(close_on_esc)
-        .add_system(draw_lines)
+        .add_plugins(debug::DebugPlugin)
+        .add_plugins(ShapePlugin)
+        .add_message::<DrawingStartedEvent>()
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                keypresses,
+                #[cfg(feature = "tweening")]
+                component_animator_system::<Transform>,
+                #[cfg(feature = "tweening")]
+                component_animator_system::<Shape>,
+                #[cfg(feature = "tweening")]
+                draw_lines,
+                #[cfg(not(feature = "tweening"))]
+                draw_immediate,
+            ),
+        )
         .register_type::<TurtleColors>()
         .register_type::<TurtleCommands>();
     }
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle {
-        camera_2d: Camera2d {
-            clear_color: ClearColorConfig::Custom(Color::BEIGE),
-        },
-        ..default()
-    });
+    commands.spawn((Camera2d,));
 }
 
 pub fn get_a_turtle() -> AnimatedTurtle {
+    #[cfg(feature = "tweening")]
     let animator = Animator::new(Tween::new(
         EaseFunction::QuadraticInOut,
         Duration::from_millis(3000),
@@ -79,6 +83,8 @@ pub fn get_a_turtle() -> AnimatedTurtle {
             end: Vec3::ONE * 1.3,
         },
     ));
+    #[cfg(not(feature = "tweening"))]
+    let animator = ();
     let turtle_bundle = TurtleBundle::default();
     AnimatedTurtle {
         animator,
@@ -89,30 +95,51 @@ pub fn get_a_turtle() -> AnimatedTurtle {
 
 fn keypresses(
     mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
+    _keys: Res<ButtonInput<KeyCode>>,
     mut tcmd: Query<(Entity, &mut TurtleCommands)>,
-    mut turtle: Query<&mut Animator<Transform>, With<TurtleShape>>,
-    mut ev_start: EventWriter<DrawingStartedEvent>,
+    #[cfg(feature = "tweening")] mut turtle: Query<&mut Animator<Transform>, With<TurtleShape>>,
+    #[cfg(not(feature = "tweening"))] mut turtle: Query<&mut Transform, With<TurtleShape>>,
+    mut _ev_start: MessageWriter<DrawingStartedEvent>,
 ) {
-    if keys.just_pressed(KeyCode::W) {
+    if _keys.just_pressed(KeyCode::KeyW) {
         for (entity, mut tcmd) in tcmd.iter_mut() {
+            #[cfg(feature = "tweening")]
             crate::drawing::run_step::run_animation_step(&mut commands, &mut tcmd, &mut turtle);
-            ev_start.send(DrawingStartedEvent(entity))
+            
+            #[cfg(not(feature = "tweening"))]
+            crate::drawing::immediate::run_all_commands_immediately(&mut commands, &mut tcmd, &mut turtle);
+            
+            _ev_start.write(DrawingStartedEvent(entity));
         }
     }
 }
 
+#[cfg(feature = "tweening")]
 fn draw_lines(
     mut commands: Commands,
     mut tcmd: Query<&mut TurtleCommands>,
     mut turtle: Query<&mut Animator<Transform>, With<TurtleShape>>,
     mut query_event: EventReader<TweenCompleted>, // TODO: howto attach only to the right event?
 ) {
-    for _ev in query_event.iter() {
+    for _ev in query_event.read() {
         if let Ok(mut tcmd) = tcmd.get_single_mut() {
             crate::drawing::run_step::run_animation_step(&mut commands, &mut tcmd, &mut turtle)
         } else {
             println!("Failed to get the turtle")
+        }
+    }
+}
+
+#[cfg(not(feature = "tweening"))]
+fn draw_immediate(
+    mut commands: Commands,
+    mut tcmd: Query<&mut TurtleCommands>,
+    mut turtle: Query<&mut Transform, With<TurtleShape>>,
+) {
+    for mut tcmd in tcmd.iter_mut() {
+        // Only draw if there are commands to execute
+        if tcmd.animation_state() < tcmd.commands().len() {
+            crate::drawing::immediate::run_all_commands_immediately(&mut commands, &mut tcmd, &mut turtle);
         }
     }
 }

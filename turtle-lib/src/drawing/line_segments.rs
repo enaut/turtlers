@@ -1,19 +1,22 @@
 use bevy::{
-    prelude::{Bundle, Color, Component, Name, Transform, Vec2},
-    reflect::{FromReflect, Reflect},
+    prelude::{Bundle, Color, Component, Name, Vec2},
+    reflect::Reflect,
 };
 use bevy_prototype_lyon::{
-    entity::ShapeBundle,
-    prelude::{DrawMode, FillMode, GeometryBuilder, PathBuilder, StrokeMode},
+    draw::{Fill, Stroke},
+    entity::Shape,
+    geometry::ShapeBuilder,
+    path::ShapePath,
+    prelude::ShapeBuilderBase as _,
     shapes::Line,
 };
 
 use crate::general::{angle::Angle, Precision};
 
-#[derive(Bundle, Reflect, FromReflect, Default)]
+#[derive(Bundle, Reflect, Default)]
 pub struct TurtleDrawLine {
     #[reflect(ignore)]
-    line: ShapeBundle,
+    line: Shape,
     name: Name,
     marker: LineMarker,
 }
@@ -27,31 +30,28 @@ impl std::fmt::Debug for TurtleDrawLine {
     }
 }
 
-#[derive(Component, Default, Reflect, FromReflect, Debug, Clone, Copy)]
+#[derive(Component, Default, Reflect, Debug, Clone, Copy)]
 struct LineMarker;
 
 impl TurtleDrawLine {
     pub(crate) fn new(start: Vec2, end: Vec2) -> Self {
+        let line = Line(start, end);
         Self {
-            line: GeometryBuilder::build_as(
-                &Line(start, start),
-                DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::MIDNIGHT_BLUE),
-                    outline_mode: StrokeMode::new(Color::BLACK, 1.0),
-                },
-                Transform::IDENTITY,
-            ),
+            line: ShapeBuilder::with(&line)
+                .fill(Fill::color(Color::NONE))
+                .stroke(Stroke::new(Color::srgb(0.0, 0.0, 0.0), 1.0))
+                .build(),
             name: Name::new(format!("Line {}-{}", start, end)),
             marker: LineMarker,
         }
     }
 }
 
-#[derive(Bundle, Reflect, FromReflect, Default)]
+#[derive(Bundle, Reflect, Default)]
 
 pub struct TurtleDrawCircle {
     #[reflect(ignore)]
-    line: ShapeBundle,
+    line: Shape,
     name: Name,
     marker: CircleMarker,
 }
@@ -65,7 +65,7 @@ impl std::fmt::Debug for TurtleDrawCircle {
     }
 }
 
-#[derive(Component, Default, Reflect, FromReflect, Debug, Clone)]
+#[derive(Component, Default, Reflect, Debug, Clone)]
 struct CircleMarker;
 
 impl TurtleDrawCircle {
@@ -76,25 +76,22 @@ impl TurtleDrawCircle {
         start: Vec2,
         _end: Vec2,
     ) -> Self {
-        let mut path_builder = PathBuilder::new();
-        path_builder.move_to(start);
         // The center point of the radius - this is responsible for the orientation of the ellipse,
         // then the radii in x and y direction - this can be rotated using the x_rotation parameter,
         // then the angle - the part of the circle that will be drawn like (PI/2.0) for a quarter circle,
         // then the x_rotation (maybe the rotation of the radii?)
-        path_builder.arc(center, radii, angle.to_radians().value(), 0.);
-        let line = path_builder.build();
+        let path =
+            ShapePath::new()
+                .move_to(start)
+                .arc(center, radii, angle.to_radians().value(), 0.);
+
         println!("Draw Circle: {} {} {:?}", center, radii, angle);
 
         Self {
-            line: GeometryBuilder::build_as(
-                &line,
-                DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::rgba(0., 0., 0., 0.)),
-                    outline_mode: StrokeMode::new(Color::BLACK, 1.0),
-                },
-                Transform::IDENTITY,
-            ),
+            line: ShapeBuilder::with(&path)
+                .fill(Fill::color(Color::NONE))
+                .stroke(Stroke::new(Color::srgb(0.0, 0.0, 0.0), 1.0))
+                .build(),
             name: Name::new(format!("Circle at {}, {}", center.x, center.y)),
             marker: CircleMarker,
         }

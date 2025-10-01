@@ -1,25 +1,22 @@
-use bevy::{
-    prelude::Component,
-    reflect::{FromReflect, Reflect},
-};
+use bevy::{prelude::Component, reflect::Reflect};
 
 use crate::{
     builders::WithCommands,
-    drawing::{
-        animation::{
-            draw_circle_segment, draw_straight_segment, move_straight_segment, turtle_turn,
-            ToAnimationSegment, TurtleAnimationSegment,
-        },
-        TurtleGraphElement,
-    },
+    drawing::TurtleGraphElement,
     general::{angle::Angle, length::Length, Coordinate, Precision, Speed},
     state::TurtleState,
+};
+
+#[cfg(feature = "tweening")]
+use crate::drawing::animation::{
+    draw_circle_segment, draw_straight_segment, move_straight_segment, turtle_turn,
+    ToAnimationSegment, TurtleAnimationSegment,
 };
 /**
  * All the possibilities to draw something with turtle. All the commands can get the position, heading,
  * color and fill_color from the turtles state.
  */
-#[derive(Component, Reflect, FromReflect, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub enum MoveCommand {
     Forward(Length),
     Backward(Length),
@@ -37,7 +34,7 @@ impl Default for MoveCommand {
 }
 /// Different ways to drop breadcrumbs on the way like a dot or a stamp of the turtles shape.
 
-#[derive(Component, Reflect, FromReflect, Default, Debug, Clone)]
+#[derive(Component, Reflect, Default, Debug, Clone)]
 pub enum Breadcrumb {
     Dot,
     #[default]
@@ -45,7 +42,7 @@ pub enum Breadcrumb {
 }
 
 /// Different ways that change the orientation of the turtle.
-#[derive(Component, Reflect, FromReflect, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub enum OrientationCommand {
     Left(Angle<Precision>),
     Right(Angle<Precision>),
@@ -60,7 +57,7 @@ impl Default for OrientationCommand {
 }
 
 /// A combination of all commands that can be used while drawing.
-#[derive(Component, Reflect, FromReflect, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub enum DrawElement {
     Draw(MoveCommand),
     Move(MoveCommand),
@@ -73,6 +70,8 @@ impl Default for DrawElement {
         Self::Draw(Default::default())
     }
 }
+
+#[cfg(feature = "tweening")]
 impl ToAnimationSegment for DrawElement {
     fn to_draw_segment(
         &self,
@@ -104,7 +103,7 @@ impl ToAnimationSegment for DrawElement {
     }
 }
 
-#[derive(Component, Reflect, FromReflect, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub enum TurtleSegment {
     Single(DrawElement),
     Outline(Vec<DrawElement>),
@@ -116,6 +115,8 @@ impl Default for TurtleSegment {
         Self::Single(Default::default())
     }
 }
+
+#[cfg(feature = "tweening")]
 impl ToAnimationSegment for TurtleSegment {
     fn to_draw_segment(
         &self,
@@ -156,8 +157,23 @@ impl TurtleCommands {
     pub fn set_speed(&mut self, speed: Speed) {
         self.state.set_speed(speed);
     }
+
+    // Public accessors for immediate drawing
+    pub(crate) fn animation_state(&self) -> usize {
+        self.animation_state
+    }
+    pub(crate) fn animation_state_mut(&mut self) -> &mut usize {
+        &mut self.animation_state
+    }
+    pub(crate) fn commands(&self) -> &[TurtleSegment] {
+        &self.commands
+    }
+    pub(crate) fn state_mut(&mut self) -> &mut TurtleState {
+        &mut self.state
+    }
 }
 
+#[cfg(feature = "tweening")]
 impl Iterator for TurtleCommands {
     type Item = TurtleAnimationSegment;
 

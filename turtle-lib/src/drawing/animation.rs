@@ -2,7 +2,7 @@ mod circle_lens;
 mod line_lens;
 
 use bevy::prelude::{Quat, Transform, Vec2, Vec3};
-use bevy_prototype_lyon::prelude::Path;
+use bevy_prototype_lyon::prelude::Shape;
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformRotateZLens},
     Animator, EaseFunction, Tween,
@@ -23,7 +23,7 @@ use super::{TurtleDrawCircle, TurtleDrawLine, TurtleGraphElement};
 pub struct TurtleAnimationSegment {
     pub turtle_animation: Option<Tween<Transform>>,
     pub line_segment: Option<TurtleGraphElement>,
-    pub line_animation: Option<Animator<Path>>,
+    pub line_animation: Option<Animator<Shape>>,
 }
 
 pub trait ToAnimationSegment {
@@ -102,7 +102,7 @@ struct MoveStraightLineAnimation {
     _start: Coordinate,
     _end: Coordinate,
     line: TurtleDrawLine,
-    animation: Tween<Path>,
+    animation: Tween<Shape>,
 }
 
 impl MoveStraightLineAnimation {
@@ -159,7 +159,7 @@ struct MoveCircleLineAnimation {
     _start: Coordinate,
     _end: Coordinate,
     line: TurtleDrawCircle,
-    animation: Tween<Path>,
+    animation: Tween<Shape>,
 }
 
 impl MoveCircleLineAnimation {
