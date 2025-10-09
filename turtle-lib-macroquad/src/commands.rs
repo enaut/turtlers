@@ -6,13 +6,11 @@ use crate::shapes::TurtleShape;
 /// Individual turtle commands
 #[derive(Clone, Debug)]
 pub enum TurtleCommand {
-    // Movement
-    Forward(Precision),
-    Backward(Precision),
+    // Movement (positive = forward, negative = backward)
+    Move(Precision),
 
-    // Rotation
-    Left(Precision),  // degrees
-    Right(Precision), // degrees
+    // Rotation (positive = right/clockwise, negative = left/counter-clockwise in degrees)
+    Turn(Precision),
 
     // Circle drawing
     Circle {

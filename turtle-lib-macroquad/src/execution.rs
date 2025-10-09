@@ -8,7 +8,7 @@ use macroquad::prelude::*;
 /// Execute a single turtle command, updating state and adding draw commands
 pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: &mut TurtleWorld) {
     match command {
-        TurtleCommand::Forward(distance) => {
+        TurtleCommand::Move(distance) => {
             let start = state.position;
             let dx = distance * state.heading.cos();
             let dy = distance * state.heading.sin();
@@ -31,34 +31,7 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             }
         }
 
-        TurtleCommand::Backward(distance) => {
-            let start = state.position;
-            let dx = -distance * state.heading.cos();
-            let dy = -distance * state.heading.sin();
-            state.position = vec2(state.position.x + dx, state.position.y + dy);
-
-            if state.pen_down {
-                world.add_command(DrawCommand::Line {
-                    start,
-                    end: state.position,
-                    color: state.color,
-                    width: state.pen_width,
-                });
-                // Add circle at end point for smooth line joins
-                world.add_command(DrawCommand::Circle {
-                    center: state.position,
-                    radius: state.pen_width / 2.0,
-                    color: state.color,
-                    filled: true,
-                });
-            }
-        }
-
-        TurtleCommand::Left(degrees) => {
-            state.heading -= degrees.to_radians();
-        }
-
-        TurtleCommand::Right(degrees) => {
+        TurtleCommand::Turn(degrees) => {
             state.heading += degrees.to_radians();
         }
 
@@ -175,7 +148,7 @@ pub fn add_draw_for_completed_tween(
     world: &mut TurtleWorld,
 ) {
     match command {
-        TurtleCommand::Forward(_) | TurtleCommand::Backward(_) | TurtleCommand::Goto(_) => {
+        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
             if start_state.pen_down {
                 world.add_command(DrawCommand::Line {
                     start: start_state.position,
@@ -281,7 +254,7 @@ mod tests {
         assert_eq!(state.heading, 0.0);
 
         // Forward 100 - should move to (100, 0)
-        execute_command(&TurtleCommand::Forward(100.0), &mut state, &mut world);
+        execute_command(&TurtleCommand::Move(100.0), &mut state, &mut world);
         assert!(
             (state.position.x - 100.0).abs() < 0.01,
             "After forward(100): x = {}",
@@ -296,7 +269,7 @@ mod tests {
 
         // Left 90 degrees - should face north (heading decreases by 90°)
         // In screen coords: north = -90° = -π/2
-        execute_command(&TurtleCommand::Left(90.0), &mut state, &mut world);
+        execute_command(&TurtleCommand::Turn(-90.0), &mut state, &mut world);
         assert!(
             (state.position.x - 100.0).abs() < 0.01,
             "After left(90): x = {}",
@@ -316,7 +289,7 @@ mod tests {
         );
 
         // Forward 50 - should move north (negative Y) to (100, -50)
-        execute_command(&TurtleCommand::Forward(50.0), &mut state, &mut world);
+        execute_command(&TurtleCommand::Move(50.0), &mut state, &mut world);
         assert!(
             (state.position.x - 100.0).abs() < 0.01,
             "Final position: x = {} (expected 100.0)",

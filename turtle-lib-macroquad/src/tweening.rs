@@ -117,10 +117,7 @@ impl TweenController {
                         tween.start_state.heading + angle.to_radians() * progress
                     }
                 },
-                TurtleCommand::Left(angle) => {
-                    tween.start_state.heading - angle.to_radians() * progress
-                }
-                TurtleCommand::Right(angle) => {
+                TurtleCommand::Turn(angle) => {
                     tween.start_state.heading + angle.to_radians() * progress
                 }
                 TurtleCommand::SetHeading(_) | _ => {
@@ -218,10 +215,7 @@ impl TweenController {
     fn command_creates_drawing(command: &TurtleCommand) -> bool {
         matches!(
             command,
-            TurtleCommand::Forward(_)
-                | TurtleCommand::Backward(_)
-                | TurtleCommand::Circle { .. }
-                | TurtleCommand::Goto(_)
+            TurtleCommand::Move(_) | TurtleCommand::Circle { .. } | TurtleCommand::Goto(_)
         )
     }
 
@@ -229,8 +223,8 @@ impl TweenController {
         let speed = speed.max(1) as f32;
 
         let base_time = match command {
-            TurtleCommand::Forward(dist) | TurtleCommand::Backward(dist) => dist.abs() / speed,
-            TurtleCommand::Left(angle) | TurtleCommand::Right(angle) => {
+            TurtleCommand::Move(dist) => dist.abs() / speed,
+            TurtleCommand::Turn(angle) => {
                 // Rotation speed: assume 180 degrees per second at speed 100
                 angle.abs() / (speed * 1.8)
             }
@@ -255,20 +249,12 @@ impl TweenController {
         let mut target = current.clone();
 
         match command {
-            TurtleCommand::Forward(dist) => {
+            TurtleCommand::Move(dist) => {
                 let dx = dist * current.heading.cos();
                 let dy = dist * current.heading.sin();
                 target.position = vec2(current.position.x + dx, current.position.y + dy);
             }
-            TurtleCommand::Backward(dist) => {
-                let dx = -dist * current.heading.cos();
-                let dy = -dist * current.heading.sin();
-                target.position = vec2(current.position.x + dx, current.position.y + dy);
-            }
-            TurtleCommand::Left(angle) => {
-                target.heading -= angle.to_radians();
-            }
-            TurtleCommand::Right(angle) => {
+            TurtleCommand::Turn(angle) => {
                 target.heading += angle.to_radians();
             }
             TurtleCommand::Circle {

@@ -187,10 +187,7 @@ pub(crate) fn render_world_with_tween(
 
 fn should_draw_tween_line(command: &crate::commands::TurtleCommand) -> bool {
     use crate::commands::TurtleCommand;
-    matches!(
-        command,
-        TurtleCommand::Forward(..) | TurtleCommand::Backward(..) | TurtleCommand::Goto(..)
-    )
+    matches!(command, TurtleCommand::Move(..) | TurtleCommand::Goto(..))
 }
 
 /// Draw arc segments for circle tween animation

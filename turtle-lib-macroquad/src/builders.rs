@@ -17,7 +17,7 @@ pub trait DirectionalMovement: WithCommands {
         T: Into<Precision>,
     {
         let dist: Precision = distance.into();
-        self.get_commands_mut().push(TurtleCommand::Forward(dist));
+        self.get_commands_mut().push(TurtleCommand::Move(dist));
         self
     }
 
@@ -26,7 +26,7 @@ pub trait DirectionalMovement: WithCommands {
         T: Into<Precision>,
     {
         let dist: Precision = distance.into();
-        self.get_commands_mut().push(TurtleCommand::Backward(dist));
+        self.get_commands_mut().push(TurtleCommand::Move(-dist));
         self
     }
 }
@@ -38,7 +38,7 @@ pub trait Turnable: WithCommands {
         T: Into<Precision>,
     {
         let degrees: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::Left(degrees));
+        self.get_commands_mut().push(TurtleCommand::Turn(-degrees));
         self
     }
 
@@ -47,7 +47,7 @@ pub trait Turnable: WithCommands {
         T: Into<Precision>,
     {
         let degrees: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::Right(degrees));
+        self.get_commands_mut().push(TurtleCommand::Turn(degrees));
         self
     }
 }
