@@ -1,7 +1,7 @@
 //! Builder pattern traits for creating turtle command sequences
 
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::{Color, Precision};
+use crate::general::{AnimationSpeed, Color, Precision};
 use crate::shapes::{ShapeType, TurtleShape};
 
 /// Trait for adding commands to a queue
@@ -106,8 +106,11 @@ impl TurtlePlan {
         }
     }
 
-    pub fn set_speed(&mut self, speed: u32) -> &mut Self {
-        self.queue.push(TurtleCommand::SetSpeed(speed));
+    /// Set animation speed
+    /// - Values >= 999 = instant mode (no animation)
+    /// - Values < 999 = animated mode with specified pixels/second
+    pub fn set_speed(&mut self, speed: impl Into<AnimationSpeed>) -> &mut Self {
+        self.queue.push(TurtleCommand::SetSpeed(speed.into()));
         self
     }
 

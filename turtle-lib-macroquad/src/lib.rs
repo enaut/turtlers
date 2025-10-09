@@ -13,7 +13,7 @@
 //!     let mut plan = create_turtle();
 //!     plan.forward(100.0).right(90.0).forward(100.0);
 //!     
-//!     let mut app = TurtleApp::new().with_commands(plan.build(), 100.0);
+//!     let mut app = TurtleApp::new().with_commands(plan.build());
 //!     
 //!     loop {
 //!         clear_background(WHITE);
@@ -37,7 +37,7 @@ pub mod tweening;
 // Re-export commonly used types
 pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
 pub use commands::{CommandQueue, TurtleCommand};
-pub use general::{Angle, Color, Coordinate, Length, Precision, Speed};
+pub use general::{Angle, AnimationSpeed, Color, Coordinate, Length, Precision};
 pub use shapes::{ShapeType, TurtleShape};
 pub use state::{DrawCommand, TurtleState, TurtleWorld};
 pub use tweening::TweenController;
@@ -48,7 +48,7 @@ use macroquad::prelude::*;
 pub struct TurtleApp {
     world: TurtleWorld,
     tween_controller: Option<TweenController>,
-    mode: ExecutionMode,
+    speed: AnimationSpeed,
     // Mouse panning state
     is_dragging: bool,
     last_mouse_pos: Option<Vec2>,
@@ -56,46 +56,31 @@ pub struct TurtleApp {
     zoom_level: f32,
 }
 
-enum ExecutionMode {
-    Immediate,
-    Animated,
-}
-
 impl TurtleApp {
-    /// Create a new turtle application with default settings
+    /// Create a new TurtleApp with default settings
     pub fn new() -> Self {
         Self {
             world: TurtleWorld::new(),
             tween_controller: None,
-            mode: ExecutionMode::Immediate,
+            speed: AnimationSpeed::default(),
             is_dragging: false,
             last_mouse_pos: None,
             zoom_level: 1.0,
         }
     }
 
-    /// Add commands to the turtle with specified speed
+    /// Add commands to the turtle
+    ///
+    /// Speed is controlled by SetSpeed commands in the queue.
+    /// Use `set_speed()` on the turtle plan to set animation speed.
+    /// Speed >= 999 = instant mode, speed < 999 = animated mode.
     ///
     /// # Arguments
     /// * `queue` - The command queue to execute
-    /// * `speed` - Animation speed in pixels/sec (>= 999.0 = instant, 0.5-999.0 = animated)
-    pub fn with_commands(mut self, queue: CommandQueue, speed: f32) -> Self {
-        if speed <= 0.5 || speed.is_infinite() || speed.is_nan() {
-            // Compiler error speed should be between 0.5 and 1000.0
-            panic!("Speed must be greater than 0.5 and less than 1000.0");
-        }
-        if speed >= 999.0 {
-            // Immediate mode - execute all commands instantly
-            self.mode = ExecutionMode::Immediate;
-            let mut state = TurtleState::default();
-            let mut queue_mut = queue;
-            execution::execute_all_immediate(&mut queue_mut, &mut state, &mut self.world);
-            self.world.turtle = state;
-        } else {
-            // Animated mode - tween between states
-            self.mode = ExecutionMode::Animated;
-            self.tween_controller = Some(TweenController::new(queue, speed));
-        }
+    pub fn with_commands(mut self, queue: CommandQueue) -> Self {
+        // The TweenController will switch between instant and animated mode
+        // based on SetSpeed commands encountered
+        self.tween_controller = Some(TweenController::new(queue, self.speed));
         self
     }
 

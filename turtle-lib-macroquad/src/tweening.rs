@@ -2,6 +2,7 @@
 
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::{CommandQueue, TurtleCommand};
+use crate::general::AnimationSpeed;
 use crate::state::TurtleState;
 use macroquad::prelude::*;
 use tween::{CubicInOut, TweenValue, Tweener};
@@ -46,7 +47,7 @@ impl From<TweenVec2> for Vec2 {
 pub struct TweenController {
     queue: CommandQueue,
     current_tween: Option<CommandTween>,
-    speed: f32, // pixels per second (or degrees per second for rotations)
+    speed: AnimationSpeed,
 }
 
 pub(crate) struct CommandTween {
@@ -61,20 +62,52 @@ pub(crate) struct CommandTween {
 }
 
 impl TweenController {
-    pub fn new(queue: CommandQueue, speed: f32) -> Self {
+    pub fn new(queue: CommandQueue, speed: AnimationSpeed) -> Self {
         Self {
             queue,
             current_tween: None,
-            speed: speed.max(1.0),
+            speed,
         }
     }
 
-    pub fn set_speed(&mut self, speed: f32) {
-        self.speed = speed.max(1.0);
+    pub fn set_speed(&mut self, speed: AnimationSpeed) {
+        self.speed = speed;
     }
 
     /// Update the tween, returns (command, start_state) if command completed
     pub fn update(&mut self, state: &mut TurtleState) -> Option<(TurtleCommand, TurtleState)> {
+        // In immediate mode, execute all remaining commands instantly
+        if self.speed.is_instant() {
+            loop {
+                let command = match self.queue.next() {
+                    Some(cmd) => cmd.clone(),
+                    None => return None,
+                };
+
+                let start_state = state.clone();
+
+                // Handle SetSpeed command to potentially switch modes
+                if let TurtleCommand::SetSpeed(new_speed) = &command {
+                    state.set_speed(*new_speed);
+                    self.speed = *new_speed;
+                    // If speed dropped below instant, switch to animated mode
+                    if !self.speed.is_instant() {
+                        return None;
+                    }
+                    continue;
+                }
+
+                // Execute command immediately
+                let target_state = self.calculate_target_state(state, &command);
+                *state = target_state.clone();
+
+                // Return drawable commands for rendering
+                if Self::command_creates_drawing(&command) {
+                    return Some((command, start_state));
+                }
+            }
+        }
+
         // Process current tween
         if let Some(ref mut tween) = self.current_tween {
             let elapsed = (get_time() - tween.start_time) as f32;
@@ -160,6 +193,19 @@ impl TweenController {
         // Start next tween
         if let Some(command) = self.queue.next() {
             let command_clone = command.clone();
+
+            // Handle SetSpeed command specially
+            if let TurtleCommand::SetSpeed(new_speed) = &command_clone {
+                state.set_speed(*new_speed);
+                self.speed = *new_speed;
+                // If switched to immediate mode, process immediately
+                if self.speed.is_instant() {
+                    return self.update(state); // Recursively process in immediate mode
+                }
+                // For animated mode speed changes, continue to next command
+                return self.update(state);
+            }
+
             let speed = state.speed; // Extract speed before borrowing self
             let duration = self.calculate_duration(&command_clone, speed);
 
@@ -219,8 +265,8 @@ impl TweenController {
         )
     }
 
-    fn calculate_duration(&self, command: &TurtleCommand, speed: u32) -> f64 {
-        let speed = speed.max(1) as f32;
+    fn calculate_duration(&self, command: &TurtleCommand, speed: AnimationSpeed) -> f64 {
+        let speed = speed.value();
 
         let base_time = match command {
             TurtleCommand::Move(dist) => dist.abs() / speed,

@@ -14,8 +14,11 @@ async fn main() {
         plan.forward(100.0).right(90.0);
     }
 
-    // Create turtle app with animation (speed = 100 pixels/sec)
-    let mut app = TurtleApp::new().with_commands(plan.build(), 100.0);
+    // Set animation speed
+    plan.set_speed(50);
+
+    // Create turtle app with animation
+    let mut app = TurtleApp::new().with_commands(plan.build());
 
     // Main loop
     loop {

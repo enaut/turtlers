@@ -5,6 +5,9 @@ use crate::commands::TurtleCommand;
 use crate::state::{DrawCommand, TurtleState, TurtleWorld};
 use macroquad::prelude::*;
 
+#[cfg(test)]
+use crate::general::AnimationSpeed;
+
 /// Execute a single turtle command, updating state and adding draw commands
 pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: &mut TurtleWorld) {
     match command {
@@ -129,17 +132,6 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
     }
 }
 
-/// Execute all commands immediately (no animation)
-pub fn execute_all_immediate(
-    queue: &mut crate::commands::CommandQueue,
-    state: &mut TurtleState,
-    world: &mut TurtleWorld,
-) {
-    while let Some(command) = queue.next() {
-        execute_command(command, state, world);
-    }
-}
-
 /// Add drawing command for a completed tween (state transition already occurred)
 pub fn add_draw_for_completed_tween(
     command: &TurtleCommand,
@@ -228,7 +220,7 @@ mod tests {
             pen_width: 1.0,
             color: Color::new(0.0, 0.0, 0.0, 1.0),
             fill_color: None,
-            speed: 100,
+            speed: AnimationSpeed::Animated(100.0),
             visible: true,
             shape: TurtleShape::turtle(),
         };

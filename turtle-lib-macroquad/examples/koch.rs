@@ -23,22 +23,23 @@ async fn main() {
     let mut plan = create_turtle();
 
     // Position turtle
-    plan.set_speed(10);
     plan.pen_up();
     plan.backward(150.0);
 
     plan.pen_down();
+    plan.set_speed(10000);
 
     // Draw Koch snowflake (triangle of Koch curves)
     for _ in 0..3 {
         koch(4, &mut plan, 300.0);
         plan.right(120.0);
+        plan.set_speed(1000);
     }
 
     plan.hide(); // Hide turtle when done
 
     // Create app with animation
-    let mut app = TurtleApp::new().with_commands(plan.build(), 1000.0);
+    let mut app = TurtleApp::new().with_commands(plan.build());
 
     loop {
         clear_background(WHITE);

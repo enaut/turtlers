@@ -1,6 +1,6 @@
 //! Turtle commands and command queue
 
-use crate::general::{Color, Coordinate, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, Precision};
 use crate::shapes::TurtleShape;
 
 /// Individual turtle commands
@@ -28,7 +28,7 @@ pub enum TurtleCommand {
     SetColor(Color),
     SetFillColor(Option<Color>),
     SetPenWidth(Precision),
-    SetSpeed(u32),
+    SetSpeed(AnimationSpeed),
     SetShape(TurtleShape),
 
     // Position

@@ -1,6 +1,6 @@
 //! Turtle state and world state management
 
-use crate::general::{Angle, Color, Coordinate, Precision, Speed};
+use crate::general::{Angle, AnimationSpeed, Color, Coordinate, Precision};
 use crate::shapes::TurtleShape;
 use macroquad::prelude::*;
 
@@ -13,7 +13,7 @@ pub struct TurtleState {
     pub color: Color,
     pub fill_color: Option<Color>,
     pub pen_width: Precision,
-    pub speed: Speed,
+    pub speed: AnimationSpeed,
     pub visible: bool,
     pub shape: TurtleShape,
 }
@@ -27,7 +27,7 @@ impl Default for TurtleState {
             color: BLACK,
             fill_color: None,
             pen_width: 2.0,
-            speed: 100, // pixels per second
+            speed: AnimationSpeed::default(),
             visible: true,
             shape: TurtleShape::turtle(),
         }
@@ -35,8 +35,8 @@ impl Default for TurtleState {
 }
 
 impl TurtleState {
-    pub fn set_speed(&mut self, speed: Speed) {
-        self.speed = speed.max(1);
+    pub fn set_speed(&mut self, speed: AnimationSpeed) {
+        self.speed = speed;
     }
 
     pub fn heading_angle(&self) -> Angle {

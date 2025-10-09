@@ -25,8 +25,11 @@ async fn main() {
     t.pen_down();
     t.circle_right(8.0, 360.0, 12);
 
+    // Set animation speed
+    t.set_speed(1000);
+
     // Create turtle app with animation (speed = 100 pixels/sec)
-    let mut app = TurtleApp::new().with_commands(t.build(), 100.0);
+    let mut app = TurtleApp::new().with_commands(t.build());
 
     // Main loop
     loop {
