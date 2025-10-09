@@ -1,0 +1,354 @@
+//! Tweening system for smooth animations
+
+use crate::circle_geometry::{CircleDirection, CircleGeometry};
+use crate::commands::{CommandQueue, TurtleCommand};
+use crate::state::TurtleState;
+use macroquad::prelude::*;
+use tween::{CubicInOut, TweenValue, Tweener};
+
+// Newtype wrapper for Vec2 to implement TweenValue
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TweenVec2(Vec2);
+
+impl TweenValue for TweenVec2 {
+    fn scale(self, scalar: f32) -> Self {
+        TweenVec2(self.0 * scalar)
+    }
+}
+
+impl std::ops::Add for TweenVec2 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        TweenVec2(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Sub for TweenVec2 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        TweenVec2(self.0 - rhs.0)
+    }
+}
+
+impl From<Vec2> for TweenVec2 {
+    fn from(v: Vec2) -> Self {
+        TweenVec2(v)
+    }
+}
+
+impl From<TweenVec2> for Vec2 {
+    fn from(v: TweenVec2) -> Self {
+        v.0
+    }
+}
+
+/// Controls tweening of turtle commands
+pub struct TweenController {
+    queue: CommandQueue,
+    current_tween: Option<CommandTween>,
+    speed: f32, // pixels per second (or degrees per second for rotations)
+}
+
+pub(crate) struct CommandTween {
+    pub command: TurtleCommand,
+    pub start_time: f64,
+    pub duration: f64,
+    pub start_state: TurtleState,
+    pub target_state: TurtleState,
+    pub position_tweener: Tweener<TweenVec2, f32, CubicInOut>,
+    pub heading_tweener: Tweener<f32, f32, CubicInOut>,
+    pub pen_width_tweener: Tweener<f32, f32, CubicInOut>,
+}
+
+impl TweenController {
+    pub fn new(queue: CommandQueue, speed: f32) -> Self {
+        Self {
+            queue,
+            current_tween: None,
+            speed: speed.max(1.0),
+        }
+    }
+
+    pub fn set_speed(&mut self, speed: f32) {
+        self.speed = speed.max(1.0);
+    }
+
+    /// Update the tween, returns (command, start_state) if command completed
+    pub fn update(&mut self, state: &mut TurtleState) -> Option<(TurtleCommand, TurtleState)> {
+        // Process current tween
+        if let Some(ref mut tween) = self.current_tween {
+            let elapsed = (get_time() - tween.start_time) as f32;
+
+            // Use tweeners to calculate current values
+            // For circles, calculate position along the arc instead of straight line
+            let progress = tween.heading_tweener.move_to(elapsed);
+
+            state.position = match &tween.command {
+                TurtleCommand::CircleLeft { radius, angle, .. } => {
+                    let angle_traveled = angle.to_radians() * progress;
+                    calculate_circle_left_position(
+                        tween.start_state.position,
+                        tween.start_state.heading,
+                        *radius,
+                        angle_traveled,
+                    )
+                }
+                TurtleCommand::CircleRight { radius, angle, .. } => {
+                    let angle_traveled = angle.to_radians() * progress;
+                    calculate_circle_right_position(
+                        tween.start_state.position,
+                        tween.start_state.heading,
+                        *radius,
+                        angle_traveled,
+                    )
+                }
+                _ => {
+                    // For non-circle commands, use normal position tweening
+                    tween.position_tweener.move_to(elapsed).into()
+                }
+            };
+
+            // Heading changes proportionally with progress for all commands
+            state.heading = match &tween.command {
+                TurtleCommand::CircleLeft { angle, .. } => {
+                    tween.start_state.heading - angle.to_radians() * progress
+                }
+                TurtleCommand::CircleRight { angle, .. } => {
+                    tween.start_state.heading + angle.to_radians() * progress
+                }
+                TurtleCommand::Left(angle) => {
+                    tween.start_state.heading - angle.to_radians() * progress
+                }
+                TurtleCommand::Right(angle) => {
+                    tween.start_state.heading + angle.to_radians() * progress
+                }
+                TurtleCommand::SetHeading(_) | _ => {
+                    // For other commands that change heading, lerp directly
+                    let heading_diff = tween.target_state.heading - tween.start_state.heading;
+                    tween.start_state.heading + heading_diff * progress
+                }
+            };
+            state.pen_width = tween.pen_width_tweener.move_to(elapsed);
+
+            // Discrete properties (switch at 50% progress)
+            let progress = (elapsed / tween.duration as f32).min(1.0);
+            if progress >= 0.5 {
+                state.pen_down = tween.target_state.pen_down;
+                state.color = tween.target_state.color;
+                state.fill_color = tween.target_state.fill_color;
+                state.visible = tween.target_state.visible;
+                state.shape = tween.target_state.shape.clone();
+            }
+
+            // Check if tween is finished (use heading_tweener as it's used by all commands)
+            if tween.heading_tweener.is_finished() {
+                // Tween complete, finalize state
+                let start_state = tween.start_state.clone();
+                *state = tween.target_state.clone();
+
+                // Return the completed command and start state to add draw commands
+                let completed_command = tween.command.clone();
+                self.current_tween = None;
+
+                // Only return command if it creates drawable elements
+                if Self::command_creates_drawing(&completed_command) {
+                    return Some((completed_command, start_state));
+                }
+            }
+
+            return None;
+        }
+
+        // Start next tween
+        if let Some(command) = self.queue.next() {
+            let command_clone = command.clone();
+            let speed = state.speed; // Extract speed before borrowing self
+            let duration = self.calculate_duration(&command_clone, speed);
+
+            // Calculate target state
+            let target_state = self.calculate_target_state(state, &command_clone);
+
+            // Create tweeners for smooth animation
+            let position_tweener = Tweener::new(
+                TweenVec2::from(state.position),
+                TweenVec2::from(target_state.position),
+                duration as f32,
+                CubicInOut,
+            );
+
+            let heading_tweener = Tweener::new(
+                0.0, // We'll handle angle wrapping separately
+                1.0,
+                duration as f32,
+                CubicInOut,
+            );
+
+            let pen_width_tweener = Tweener::new(
+                state.pen_width,
+                target_state.pen_width,
+                duration as f32,
+                CubicInOut,
+            );
+
+            self.current_tween = Some(CommandTween {
+                command: command_clone,
+                start_time: get_time(),
+                duration,
+                start_state: state.clone(),
+                target_state,
+                position_tweener,
+                heading_tweener,
+                pen_width_tweener,
+            });
+        }
+
+        None
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.current_tween.is_none() && self.queue.is_complete()
+    }
+
+    /// Get the current active tween if one is in progress
+    pub(crate) fn current_tween(&self) -> Option<&CommandTween> {
+        self.current_tween.as_ref()
+    }
+
+    fn command_creates_drawing(command: &TurtleCommand) -> bool {
+        matches!(
+            command,
+            TurtleCommand::Forward(_)
+                | TurtleCommand::Backward(_)
+                | TurtleCommand::CircleLeft { .. }
+                | TurtleCommand::CircleRight { .. }
+                | TurtleCommand::Goto(_)
+        )
+    }
+
+    fn calculate_duration(&self, command: &TurtleCommand, speed: u32) -> f64 {
+        let speed = speed.max(1) as f32;
+
+        let base_time = match command {
+            TurtleCommand::Forward(dist) | TurtleCommand::Backward(dist) => dist.abs() / speed,
+            TurtleCommand::Left(angle) | TurtleCommand::Right(angle) => {
+                // Rotation speed: assume 180 degrees per second at speed 100
+                angle.abs() / (speed * 1.8)
+            }
+            TurtleCommand::CircleLeft { radius, angle, .. }
+            | TurtleCommand::CircleRight { radius, angle, .. } => {
+                let arc_length = radius * angle.to_radians().abs();
+                arc_length / speed
+            }
+            TurtleCommand::Goto(_target) => {
+                // Calculate distance (handled in calculate_target_state)
+                0.1 // Placeholder, will be calculated properly
+            }
+            _ => 0.0, // Instant commands
+        };
+        base_time.max(0.01) as f64 // Minimum duration
+    }
+
+    fn calculate_target_state(
+        &self,
+        current: &TurtleState,
+        command: &TurtleCommand,
+    ) -> TurtleState {
+        let mut target = current.clone();
+
+        match command {
+            TurtleCommand::Forward(dist) => {
+                let dx = dist * current.heading.cos();
+                let dy = dist * current.heading.sin();
+                target.position = vec2(current.position.x + dx, current.position.y + dy);
+            }
+            TurtleCommand::Backward(dist) => {
+                let dx = -dist * current.heading.cos();
+                let dy = -dist * current.heading.sin();
+                target.position = vec2(current.position.x + dx, current.position.y + dy);
+            }
+            TurtleCommand::Left(angle) => {
+                target.heading -= angle.to_radians();
+            }
+            TurtleCommand::Right(angle) => {
+                target.heading += angle.to_radians();
+            }
+            TurtleCommand::CircleLeft { radius, angle, .. } => {
+                // Use helper function to calculate final position
+                target.position = calculate_circle_left_position(
+                    current.position,
+                    current.heading,
+                    *radius,
+                    angle.to_radians(),
+                );
+                target.heading = current.heading - angle.to_radians();
+            }
+            TurtleCommand::CircleRight { radius, angle, .. } => {
+                // Use helper function to calculate final position
+                target.position = calculate_circle_right_position(
+                    current.position,
+                    current.heading,
+                    *radius,
+                    angle.to_radians(),
+                );
+                target.heading = current.heading + angle.to_radians();
+            }
+            TurtleCommand::Goto(coord) => {
+                target.position = *coord;
+            }
+            TurtleCommand::SetHeading(heading) => {
+                target.heading = *heading;
+            }
+            TurtleCommand::SetColor(color) => {
+                target.color = *color;
+            }
+            TurtleCommand::SetPenWidth(width) => {
+                target.pen_width = *width;
+            }
+            TurtleCommand::SetSpeed(speed) => {
+                target.speed = *speed;
+            }
+            TurtleCommand::SetShape(shape) => {
+                target.shape = shape.clone();
+            }
+            TurtleCommand::PenUp => {
+                target.pen_down = false;
+            }
+            TurtleCommand::PenDown => {
+                target.pen_down = true;
+            }
+            TurtleCommand::ShowTurtle => {
+                target.visible = true;
+            }
+            TurtleCommand::HideTurtle => {
+                target.visible = false;
+            }
+            TurtleCommand::SetFillColor(color) => {
+                target.fill_color = *color;
+            }
+        }
+
+        target
+    }
+}
+
+/// Calculate position on a circular arc for circle_left
+fn calculate_circle_left_position(
+    start_pos: Vec2,
+    start_heading: f32,
+    radius: f32,
+    angle_traveled: f32, // How much of the total angle we've traveled (in radians)
+) -> Vec2 {
+    let geom = CircleGeometry::new(start_pos, start_heading, radius, CircleDirection::Left);
+    geom.position_at_angle(angle_traveled)
+}
+
+/// Calculate position on a circular arc for circle_right
+fn calculate_circle_right_position(
+    start_pos: Vec2,
+    start_heading: f32,
+    radius: f32,
+    angle_traveled: f32, // How much of the total angle we've traveled (in radians)
+) -> Vec2 {
+    let geom = CircleGeometry::new(start_pos, start_heading, radius, CircleDirection::Right);
+    geom.position_at_angle(angle_traveled)
+}
