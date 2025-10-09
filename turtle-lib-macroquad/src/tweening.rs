@@ -84,22 +84,19 @@ impl TweenController {
             let progress = tween.heading_tweener.move_to(elapsed);
 
             state.position = match &tween.command {
-                TurtleCommand::CircleLeft { radius, angle, .. } => {
+                TurtleCommand::Circle {
+                    radius,
+                    angle,
+                    direction,
+                    ..
+                } => {
                     let angle_traveled = angle.to_radians() * progress;
-                    calculate_circle_left_position(
+                    calculate_circle_position(
                         tween.start_state.position,
                         tween.start_state.heading,
                         *radius,
                         angle_traveled,
-                    )
-                }
-                TurtleCommand::CircleRight { radius, angle, .. } => {
-                    let angle_traveled = angle.to_radians() * progress;
-                    calculate_circle_right_position(
-                        tween.start_state.position,
-                        tween.start_state.heading,
-                        *radius,
-                        angle_traveled,
+                        *direction,
                     )
                 }
                 _ => {
@@ -110,12 +107,16 @@ impl TweenController {
 
             // Heading changes proportionally with progress for all commands
             state.heading = match &tween.command {
-                TurtleCommand::CircleLeft { angle, .. } => {
-                    tween.start_state.heading - angle.to_radians() * progress
-                }
-                TurtleCommand::CircleRight { angle, .. } => {
-                    tween.start_state.heading + angle.to_radians() * progress
-                }
+                TurtleCommand::Circle {
+                    angle, direction, ..
+                } => match direction {
+                    CircleDirection::Left => {
+                        tween.start_state.heading - angle.to_radians() * progress
+                    }
+                    CircleDirection::Right => {
+                        tween.start_state.heading + angle.to_radians() * progress
+                    }
+                },
                 TurtleCommand::Left(angle) => {
                     tween.start_state.heading - angle.to_radians() * progress
                 }
@@ -219,8 +220,7 @@ impl TweenController {
             command,
             TurtleCommand::Forward(_)
                 | TurtleCommand::Backward(_)
-                | TurtleCommand::CircleLeft { .. }
-                | TurtleCommand::CircleRight { .. }
+                | TurtleCommand::Circle { .. }
                 | TurtleCommand::Goto(_)
         )
     }
@@ -234,8 +234,7 @@ impl TweenController {
                 // Rotation speed: assume 180 degrees per second at speed 100
                 angle.abs() / (speed * 1.8)
             }
-            TurtleCommand::CircleLeft { radius, angle, .. }
-            | TurtleCommand::CircleRight { radius, angle, .. } => {
+            TurtleCommand::Circle { radius, angle, .. } => {
                 let arc_length = radius * angle.to_radians().abs();
                 arc_length / speed
             }
@@ -272,25 +271,24 @@ impl TweenController {
             TurtleCommand::Right(angle) => {
                 target.heading += angle.to_radians();
             }
-            TurtleCommand::CircleLeft { radius, angle, .. } => {
+            TurtleCommand::Circle {
+                radius,
+                angle,
+                direction,
+                ..
+            } => {
                 // Use helper function to calculate final position
-                target.position = calculate_circle_left_position(
+                target.position = calculate_circle_position(
                     current.position,
                     current.heading,
                     *radius,
                     angle.to_radians(),
+                    *direction,
                 );
-                target.heading = current.heading - angle.to_radians();
-            }
-            TurtleCommand::CircleRight { radius, angle, .. } => {
-                // Use helper function to calculate final position
-                target.position = calculate_circle_right_position(
-                    current.position,
-                    current.heading,
-                    *radius,
-                    angle.to_radians(),
-                );
-                target.heading = current.heading + angle.to_radians();
+                target.heading = match direction {
+                    CircleDirection::Left => current.heading - angle.to_radians(),
+                    CircleDirection::Right => current.heading + angle.to_radians(),
+                };
             }
             TurtleCommand::Goto(coord) => {
                 target.position = *coord;
@@ -331,24 +329,14 @@ impl TweenController {
     }
 }
 
-/// Calculate position on a circular arc for circle_left
-fn calculate_circle_left_position(
+/// Calculate position on a circular arc
+fn calculate_circle_position(
     start_pos: Vec2,
     start_heading: f32,
     radius: f32,
     angle_traveled: f32, // How much of the total angle we've traveled (in radians)
+    direction: CircleDirection,
 ) -> Vec2 {
-    let geom = CircleGeometry::new(start_pos, start_heading, radius, CircleDirection::Left);
-    geom.position_at_angle(angle_traveled)
-}
-
-/// Calculate position on a circular arc for circle_right
-fn calculate_circle_right_position(
-    start_pos: Vec2,
-    start_heading: f32,
-    radius: f32,
-    angle_traveled: f32, // How much of the total angle we've traveled (in radians)
-) -> Vec2 {
-    let geom = CircleGeometry::new(start_pos, start_heading, radius, CircleDirection::Right);
+    let geom = CircleGeometry::new(start_pos, start_heading, radius, direction);
     geom.position_at_angle(angle_traveled)
 }

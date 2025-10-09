@@ -61,10 +61,11 @@ pub trait CurvedMovement: WithCommands {
     {
         let r: Precision = radius.into();
         let a: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::CircleLeft {
+        self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
             angle: a,
             steps,
+            direction: crate::circle_geometry::CircleDirection::Left,
         });
         self
     }
@@ -76,10 +77,11 @@ pub trait CurvedMovement: WithCommands {
     {
         let r: Precision = radius.into();
         let a: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::CircleRight {
+        self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
             angle: a,
             steps,
+            direction: crate::circle_geometry::CircleDirection::Right,
         });
         self
     }

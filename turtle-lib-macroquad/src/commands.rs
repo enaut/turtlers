@@ -15,15 +15,11 @@ pub enum TurtleCommand {
     Right(Precision), // degrees
 
     // Circle drawing
-    CircleLeft {
+    Circle {
         radius: Precision,
         angle: Precision, // degrees
         steps: usize,
-    },
-    CircleRight {
-        radius: Precision,
-        angle: Precision, // degrees
-        steps: usize,
+        direction: crate::circle_geometry::CircleDirection,
     },
 
     // Pen control

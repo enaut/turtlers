@@ -144,21 +144,14 @@ pub(crate) fn render_world_with_tween(
     if let Some(tween) = active_tween {
         if tween.start_state.pen_down {
             match &tween.command {
-                crate::commands::TurtleCommand::CircleLeft {
+                crate::commands::TurtleCommand::Circle {
                     radius,
                     angle,
                     steps,
+                    direction,
                 } => {
                     // Draw arc segments from start to current position
-                    draw_tween_arc_left(tween, *radius, *angle, *steps);
-                }
-                crate::commands::TurtleCommand::CircleRight {
-                    radius,
-                    angle,
-                    steps,
-                } => {
-                    // Draw arc segments from start to current position
-                    draw_tween_arc_right(tween, *radius, *angle, *steps);
+                    draw_tween_arc(tween, *radius, *angle, *steps, *direction);
                 }
                 _ if should_draw_tween_line(&tween.command) => {
                     // Draw straight line for other movement commands
@@ -200,59 +193,19 @@ fn should_draw_tween_line(command: &crate::commands::TurtleCommand) -> bool {
     )
 }
 
-/// Draw arc segments for circle_left tween animation
-fn draw_tween_arc_left(
+/// Draw arc segments for circle tween animation
+fn draw_tween_arc(
     tween: &crate::tweening::CommandTween,
     radius: f32,
     total_angle: f32,
     steps: usize,
+    direction: CircleDirection,
 ) {
     let geom = CircleGeometry::new(
         tween.start_state.position,
         tween.start_state.heading,
         radius,
-        CircleDirection::Left,
-    );
-
-    // Debug: draw center
-    draw_circle(geom.center.x, geom.center.y, 5.0, GRAY);
-
-    // Calculate how much of the arc we've traveled based on tween progress
-    // Use the same eased progress as the turtle position for synchronized animation
-    let elapsed = (get_time() - tween.start_time) as f32;
-    let t = (elapsed / tween.duration as f32).min(1.0);
-    let progress = CubicInOut.tween(1.0, t); // tween from 0 to 1
-    let angle_traveled = total_angle.to_radians() * progress;
-    let (rotation_degrees, arc_degrees) = geom.draw_arc_params_partial(angle_traveled);
-
-    // Adjust radius inward by half the line width so the line sits on the turtle's path
-    let draw_radius = radius - tween.start_state.pen_width / 2.0;
-
-    // Draw the partial arc
-    draw_arc(
-        geom.center.x,
-        geom.center.y,
-        steps as u8,
-        draw_radius,
-        rotation_degrees,
-        tween.start_state.pen_width,
-        arc_degrees,
-        tween.start_state.color,
-    );
-}
-
-/// Draw arc segments for circle_right tween animation
-fn draw_tween_arc_right(
-    tween: &crate::tweening::CommandTween,
-    radius: f32,
-    total_angle: f32,
-    steps: usize,
-) {
-    let geom = CircleGeometry::new(
-        tween.start_state.position,
-        tween.start_state.heading,
-        radius,
-        CircleDirection::Right,
+        direction,
     );
 
     // Debug: draw center

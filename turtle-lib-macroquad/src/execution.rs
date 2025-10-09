@@ -62,18 +62,14 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             state.heading += degrees.to_radians();
         }
 
-        TurtleCommand::CircleLeft {
+        TurtleCommand::Circle {
             radius,
             angle,
             steps,
+            direction,
         } => {
             let start_heading = state.heading;
-            let geom = CircleGeometry::new(
-                state.position,
-                start_heading,
-                *radius,
-                CircleDirection::Left,
-            );
+            let geom = CircleGeometry::new(state.position, start_heading, *radius, *direction);
 
             if state.pen_down {
                 let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
@@ -91,39 +87,10 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
 
             // Update turtle position and heading
             state.position = geom.position_at_angle(angle.to_radians());
-            state.heading = start_heading - angle.to_radians();
-        }
-
-        TurtleCommand::CircleRight {
-            radius,
-            angle,
-            steps,
-        } => {
-            let start_heading = state.heading;
-            let geom = CircleGeometry::new(
-                state.position,
-                start_heading,
-                *radius,
-                CircleDirection::Right,
-            );
-
-            if state.pen_down {
-                let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
-
-                world.add_command(DrawCommand::Arc {
-                    center: geom.center,
-                    radius: *radius - state.pen_width, // Adjust radius for pen width to keep arc inside
-                    rotation: rotation_degrees,
-                    arc: arc_degrees,
-                    color: state.color,
-                    width: state.pen_width,
-                    sides: *steps as u8,
-                });
-            }
-
-            // Update turtle position and heading
-            state.position = geom.position_at_angle(angle.to_radians());
-            state.heading = start_heading + angle.to_radians();
+            state.heading = match direction {
+                CircleDirection::Left => start_heading - angle.to_radians(),
+                CircleDirection::Right => start_heading + angle.to_radians(),
+            };
         }
 
         TurtleCommand::PenUp => {
@@ -225,56 +192,18 @@ pub fn add_draw_for_completed_tween(
                 });
             }
         }
-        TurtleCommand::CircleLeft {
+        TurtleCommand::Circle {
             radius,
             angle,
             steps,
+            direction,
         } => {
             if start_state.pen_down {
                 let geom = CircleGeometry::new(
                     start_state.position,
                     start_state.heading,
                     *radius,
-                    CircleDirection::Left,
-                );
-                let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
-
-                world.add_command(DrawCommand::Arc {
-                    center: geom.center,
-                    radius: *radius - start_state.pen_width / 2.0,
-                    rotation: rotation_degrees,
-                    arc: arc_degrees,
-                    color: start_state.color,
-                    width: start_state.pen_width,
-                    sides: *steps as u8,
-                });
-
-                // Add endpoint circles for smooth joins
-                world.add_command(DrawCommand::Circle {
-                    center: start_state.position,
-                    radius: start_state.pen_width / 2.0,
-                    color: start_state.color,
-                    filled: true,
-                });
-                world.add_command(DrawCommand::Circle {
-                    center: end_state.position,
-                    radius: start_state.pen_width / 2.0,
-                    color: start_state.color,
-                    filled: true,
-                });
-            }
-        }
-        TurtleCommand::CircleRight {
-            radius,
-            angle,
-            steps,
-        } => {
-            if start_state.pen_down {
-                let geom = CircleGeometry::new(
-                    start_state.position,
-                    start_state.heading,
-                    *radius,
-                    CircleDirection::Right,
+                    *direction,
                 );
                 let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
 
