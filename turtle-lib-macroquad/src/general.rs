@@ -18,32 +18,35 @@ pub type Coordinate = Vec2;
 pub type Visibility = bool;
 
 /// Execution speed setting
-/// - Instant: No animation, commands execute immediately
+/// - Instant(draw_calls): Fast execution with limited draw calls per frame (speed - 1000, minimum 1)
 /// - Animated(speed): Smooth animation at specified pixels/second
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AnimationSpeed {
-    Instant,
+    Instant(u32),  // Number of draw calls per frame (minimum 1)
     Animated(f32), // pixels per second
 }
 
 impl AnimationSpeed {
     /// Check if this is instant mode
-    pub fn is_instant(&self) -> bool {
-        matches!(self, AnimationSpeed::Instant)
+    pub fn is_animating(&self) -> bool {
+        matches!(self, AnimationSpeed::Animated(_))
     }
 
-    /// Get the speed value (returns a high value for Instant)
+    /// Get the speed value (returns encoded value for Instant)
     pub fn value(&self) -> f32 {
         match self {
-            AnimationSpeed::Instant => 9999.0,
+            AnimationSpeed::Instant(calls) => 1000.0 + *calls as f32,
             AnimationSpeed::Animated(speed) => *speed,
         }
     }
 
-    /// Create from a raw speed value (>= 999 becomes Instant)
+    /// Create from a raw speed value
+    /// - speed >= 1000 becomes Instant with max(1, speed - 1000) draw calls per frame
+    /// - speed < 1000 becomes Animated
     pub fn from_value(speed: f32) -> Self {
-        if speed >= 999.0 {
-            AnimationSpeed::Instant
+        if speed >= 1000.0 {
+            let draw_calls = (speed - 1000.0).max(1.0) as u32; // Ensure at least 1
+            AnimationSpeed::Instant(draw_calls)
         } else {
             AnimationSpeed::Animated(speed.max(1.0))
         }

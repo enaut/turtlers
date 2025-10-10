@@ -8,10 +8,11 @@ async fn main() {
     // Create a turtle plan
     let mut plan = create_turtle();
     plan.shape(ShapeType::Turtle);
-    plan.set_speed(800);
+    plan.set_speed(1500);
+    plan.set_pen_width(0.5);
 
-    // Draw a square
-    for _ in 0..5 {
+    // Draw a 5-pointed star pattern repeatedly
+    for _i in 0..50000 {
         plan.forward(200.0);
         plan.circle_left(10.0, 72.0, 1000);
         plan.circle_right(5.0, 360.0, 1000);

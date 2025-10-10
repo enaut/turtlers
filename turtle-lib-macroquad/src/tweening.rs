@@ -74,25 +74,33 @@ impl TweenController {
         self.speed = speed;
     }
 
-    /// Update the tween, returns (command, start_state) if command completed
-    pub fn update(&mut self, state: &mut TurtleState) -> Option<(TurtleCommand, TurtleState)> {
-        // In immediate mode, execute all remaining commands instantly
-        if self.speed.is_instant() {
+    /// Update the tween, returns Vec of (command, start_state, end_state) for all completed commands this frame
+    /// Each command has its own start_state and end_state pair
+    pub fn update(
+        &mut self,
+        state: &mut TurtleState,
+    ) -> Vec<(TurtleCommand, TurtleState, TurtleState)> {
+        // In instant mode, execute commands up to the draw calls per frame limit
+        if let AnimationSpeed::Instant(max_draw_calls) = self.speed {
+            let mut completed_commands = Vec::new();
+            let mut draw_call_count = 0;
+
             loop {
                 let command = match self.queue.next() {
                     Some(cmd) => cmd.clone(),
-                    None => return None,
+                    None => break,
                 };
 
+                // Capture start state BEFORE executing this command
                 let start_state = state.clone();
 
                 // Handle SetSpeed command to potentially switch modes
                 if let TurtleCommand::SetSpeed(new_speed) = &command {
                     state.set_speed(*new_speed);
                     self.speed = *new_speed;
-                    // If speed dropped below instant, switch to animated mode
-                    if !self.speed.is_instant() {
-                        return None;
+                    // If speed switched to animated mode, exit instant mode processing
+                    if matches!(self.speed, AnimationSpeed::Animated(_)) {
+                        break;
                     }
                     continue;
                 }
@@ -101,11 +109,22 @@ impl TweenController {
                 let target_state = self.calculate_target_state(state, &command);
                 *state = target_state.clone();
 
-                // Return drawable commands for rendering
+                // Capture end state AFTER executing this command
+                let end_state = state.clone();
+
+                // Collect drawable commands with their individual start and end states
                 if Self::command_creates_drawing(&command) {
-                    return Some((command, start_state));
+                    completed_commands.push((command, start_state, end_state));
+                    draw_call_count += 1;
+
+                    // Stop if we've reached the draw call limit for this frame
+                    if draw_call_count >= max_draw_calls {
+                        break;
+                    }
                 }
             }
+
+            return completed_commands;
         }
 
         // Process current tween
@@ -139,7 +158,7 @@ impl TweenController {
             };
 
             // Heading changes proportionally with progress for all commands
-            state.heading = match &tween.command {
+            state.heading = normalize_angle(match &tween.command {
                 TurtleCommand::Circle {
                     angle, direction, ..
                 } => match direction {
@@ -158,7 +177,7 @@ impl TweenController {
                     let heading_diff = tween.target_state.heading - tween.start_state.heading;
                     tween.start_state.heading + heading_diff * progress
                 }
-            };
+            });
             state.pen_width = tween.pen_width_tweener.move_to(elapsed);
 
             // Discrete properties (switch at 50% progress)
@@ -176,18 +195,19 @@ impl TweenController {
                 // Tween complete, finalize state
                 let start_state = tween.start_state.clone();
                 *state = tween.target_state.clone();
+                let end_state = state.clone();
 
-                // Return the completed command and start state to add draw commands
+                // Return the completed command and start/end states to add draw commands
                 let completed_command = tween.command.clone();
                 self.current_tween = None;
 
                 // Only return command if it creates drawable elements
                 if Self::command_creates_drawing(&completed_command) {
-                    return Some((completed_command, start_state));
+                    return vec![(completed_command, start_state, end_state)];
                 }
             }
 
-            return None;
+            return Vec::new();
         }
 
         // Start next tween
@@ -198,9 +218,9 @@ impl TweenController {
             if let TurtleCommand::SetSpeed(new_speed) = &command_clone {
                 state.set_speed(*new_speed);
                 self.speed = *new_speed;
-                // If switched to immediate mode, process immediately
-                if self.speed.is_instant() {
-                    return self.update(state); // Recursively process in immediate mode
+                // If switched to instant mode, process commands immediately
+                if matches!(self.speed, AnimationSpeed::Instant(_)) {
+                    return self.update(state); // Recursively process in instant mode
                 }
                 // For animated mode speed changes, continue to next command
                 return self.update(state);
@@ -246,7 +266,7 @@ impl TweenController {
             });
         }
 
-        None
+        Vec::new()
     }
 
     pub fn is_complete(&self) -> bool {
@@ -301,7 +321,7 @@ impl TweenController {
                 target.position = vec2(current.position.x + dx, current.position.y + dy);
             }
             TurtleCommand::Turn(angle) => {
-                target.heading += angle.to_radians();
+                target.heading = normalize_angle(current.heading + angle.to_radians());
             }
             TurtleCommand::Circle {
                 radius,
@@ -317,16 +337,16 @@ impl TweenController {
                     angle.to_radians(),
                     *direction,
                 );
-                target.heading = match direction {
+                target.heading = normalize_angle(match direction {
                     CircleDirection::Left => current.heading - angle.to_radians(),
                     CircleDirection::Right => current.heading + angle.to_radians(),
-                };
+                });
             }
             TurtleCommand::Goto(coord) => {
                 target.position = *coord;
             }
             TurtleCommand::SetHeading(heading) => {
-                target.heading = *heading;
+                target.heading = normalize_angle(*heading);
             }
             TurtleCommand::SetColor(color) => {
                 target.color = *color;
@@ -371,4 +391,19 @@ fn calculate_circle_position(
 ) -> Vec2 {
     let geom = CircleGeometry::new(start_pos, start_heading, radius, direction);
     geom.position_at_angle(angle_traveled)
+}
+
+/// Normalize angle to range [-PI, PI] to prevent floating-point drift
+fn normalize_angle(angle: f32) -> f32 {
+    let two_pi = std::f32::consts::PI * 2.0;
+    let mut normalized = angle % two_pi;
+
+    // Ensure result is in [-PI, PI]
+    if normalized > std::f32::consts::PI {
+        normalized -= two_pi;
+    } else if normalized < -std::f32::consts::PI {
+        normalized += two_pi;
+    }
+
+    normalized
 }

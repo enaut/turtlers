@@ -124,6 +124,11 @@ impl TurtlePlan {
         self
     }
 
+    pub fn set_heading(&mut self, heading: Precision) -> &mut Self {
+        self.queue.push(TurtleCommand::SetHeading(heading));
+        self
+    }
+
     pub fn pen_up(&mut self) -> &mut Self {
         self.queue.push(TurtleCommand::PenUp);
         self

@@ -23,17 +23,17 @@ async fn main() {
     let mut plan = create_turtle();
 
     // Position turtle
+    plan.set_speed(1001);
     plan.pen_up();
     plan.backward(150.0);
 
     plan.pen_down();
-    plan.set_speed(10000);
 
     // Draw Koch snowflake (triangle of Koch curves)
     for _ in 0..3 {
         koch(4, &mut plan, 300.0);
         plan.right(120.0);
-        plan.set_speed(1000);
+        plan.set_speed(1200);
     }
 
     plan.hide(); // Hide turtle when done

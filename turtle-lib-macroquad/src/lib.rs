@@ -91,10 +91,10 @@ impl TurtleApp {
         self.handle_mouse_zoom();
 
         if let Some(ref mut controller) = self.tween_controller {
-            if let Some((completed_cmd, start_state)) = controller.update(&mut self.world.turtle) {
-                // Copy end state before we borrow world mutably
-                let end_state = self.world.turtle.clone();
+            let completed_commands = controller.update(&mut self.world.turtle);
 
+            // Process all completed commands (multiple in instant mode, 0-1 in animated mode)
+            for (completed_cmd, start_state, end_state) in completed_commands {
                 // Add draw commands for the completed tween
                 execution::add_draw_for_completed_tween(
                     &completed_cmd,
@@ -105,7 +105,6 @@ impl TurtleApp {
             }
         }
     }
-
     /// Handle mouse click and drag for panning
     fn handle_mouse_panning(&mut self) {
         let mouse_pos = mouse_position();
