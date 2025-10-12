@@ -9,17 +9,141 @@ use macroquad::prelude::*;
 #[cfg(test)]
 use crate::general::AnimationSpeed;
 
+/// Execute side effects for commands that don't involve movement
+/// Returns true if the command was handled (caller should skip movement processing)
+pub fn execute_command_side_effects(
+    command: &TurtleCommand,
+    state: &mut TurtleState,
+    commands: &mut Vec<DrawCommand>,
+) -> bool {
+    match command {
+        TurtleCommand::BeginFill => {
+            if state.filling.is_some() {
+                tracing::warn!("begin_fill() called while already filling");
+            }
+            let fill_color = state.fill_color.unwrap_or_else(|| {
+                tracing::warn!("No fill_color set, using black");
+                BLACK
+            });
+            state.begin_fill(fill_color);
+            true
+        }
+
+        TurtleCommand::EndFill => {
+            if let Some(mut fill_state) = state.filling.take() {
+                if !fill_state.current_contour.is_empty() {
+                    fill_state.contours.push(fill_state.current_contour);
+                }
+
+                let span = tracing::debug_span!("end_fill", contours = fill_state.contours.len());
+                let _enter = span.enter();
+
+                for (i, contour) in fill_state.contours.iter().enumerate() {
+                    tracing::debug!(contour_idx = i, vertices = contour.len(), "Contour info");
+                }
+
+                if !fill_state.contours.is_empty() {
+                    if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                        &fill_state.contours,
+                        fill_state.fill_color,
+                    ) {
+                        tracing::debug!(
+                            contours = fill_state.contours.len(),
+                            "Successfully tessellated contours"
+                        );
+                        commands.push(DrawCommand::Mesh(mesh_data));
+                    } else {
+                        tracing::error!("Failed to tessellate contours");
+                    }
+                }
+            } else {
+                tracing::warn!("end_fill() called without begin_fill()");
+            }
+            true
+        }
+
+        TurtleCommand::PenUp => {
+            state.pen_down = false;
+            if state.filling.is_some() {
+                tracing::debug!("PenUp: Closing current contour");
+            }
+            state.close_fill_contour();
+            true
+        }
+
+        TurtleCommand::PenDown => {
+            state.pen_down = true;
+            if state.filling.is_some() {
+                tracing::debug!(
+                    x = state.position.x,
+                    y = state.position.y,
+                    "PenDown: Starting new contour"
+                );
+            }
+            state.start_fill_contour();
+            true
+        }
+
+        _ => false, // Not a side-effect-only command
+    }
+}
+
+/// Record fill vertices after movement commands have updated state
+pub fn record_fill_vertices_after_movement(
+    command: &TurtleCommand,
+    start_state: &TurtleState,
+    state: &mut TurtleState,
+) {
+    if state.filling.is_none() {
+        return;
+    }
+
+    match command {
+        TurtleCommand::Circle {
+            radius,
+            angle,
+            steps,
+            direction,
+        } => {
+            let geom = CircleGeometry::new(
+                start_state.position,
+                start_state.heading,
+                *radius,
+                *direction,
+            );
+            state.record_fill_vertices_for_arc(
+                geom.center,
+                *radius,
+                geom.start_angle_from_center,
+                angle.to_radians(),
+                *direction,
+                *steps as u32,
+            );
+        }
+        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+            state.record_fill_vertex();
+        }
+        _ => {}
+    }
+}
+
 /// Execute a single turtle command, updating state and adding draw commands
 pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: &mut TurtleWorld) {
+    // Try to execute as side-effect-only command first
+    if execute_command_side_effects(command, state, &mut world.commands) {
+        return; // Command fully handled
+    }
+
+    // Store start state for fill vertex recording
+    let start_state = state.clone();
+
+    // Execute movement and appearance commands
     match command {
         TurtleCommand::Move(distance) => {
             let start = state.position;
             let dx = distance * state.heading.cos();
             let dy = distance * state.heading.sin();
             state.position = vec2(state.position.x + dx, state.position.y + dy);
-
-            // Record vertex for fill if filling
-            state.record_fill_vertex();
 
             if state.pen_down {
                 // Draw line segment with round caps (caps handled by tessellate_stroke)
@@ -70,66 +194,11 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                 CircleDirection::Left => start_heading - angle.to_radians(),
                 CircleDirection::Right => start_heading + angle.to_radians(),
             };
-
-            // Record vertices along arc for fill if filling
-            state.record_fill_vertices_for_arc(
-                geom.center,
-                *radius,
-                geom.start_angle_from_center,
-                angle.to_radians(),
-                *direction,
-                *steps as u32,
-            );
-        }
-
-        TurtleCommand::PenUp => {
-            state.pen_down = false;
-            // Close current contour if filling
-            if state.filling.is_some() {
-                tracing::debug!("PenUp: Closing current contour");
-            }
-            state.close_fill_contour();
-        }
-
-        TurtleCommand::PenDown => {
-            state.pen_down = true;
-            // Start new contour if filling
-            if state.filling.is_some() {
-                tracing::debug!(
-                    x = state.position.x,
-                    y = state.position.y,
-                    "PenDown: Starting new contour"
-                );
-            }
-            state.start_fill_contour();
-        }
-
-        TurtleCommand::SetColor(color) => {
-            state.color = *color;
-        }
-
-        TurtleCommand::SetFillColor(color) => {
-            state.fill_color = *color;
-        }
-
-        TurtleCommand::SetPenWidth(width) => {
-            state.pen_width = *width;
-        }
-
-        TurtleCommand::SetSpeed(speed) => {
-            state.set_speed(*speed);
-        }
-
-        TurtleCommand::SetShape(shape) => {
-            state.shape = shape.clone();
         }
 
         TurtleCommand::Goto(coord) => {
             let start = state.position;
             state.position = *coord;
-
-            // Record vertex for fill if filling
-            state.record_fill_vertex();
 
             if state.pen_down {
                 // Draw line segment with round caps
@@ -144,66 +213,21 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             }
         }
 
-        TurtleCommand::SetHeading(heading) => {
-            state.heading = *heading;
-        }
+        // Appearance commands
+        TurtleCommand::SetColor(color) => state.color = *color,
+        TurtleCommand::SetFillColor(color) => state.fill_color = *color,
+        TurtleCommand::SetPenWidth(width) => state.pen_width = *width,
+        TurtleCommand::SetSpeed(speed) => state.set_speed(*speed),
+        TurtleCommand::SetShape(shape) => state.shape = shape.clone(),
+        TurtleCommand::SetHeading(heading) => state.heading = *heading,
+        TurtleCommand::ShowTurtle => state.visible = true,
+        TurtleCommand::HideTurtle => state.visible = false,
 
-        TurtleCommand::ShowTurtle => {
-            state.visible = true;
-        }
-
-        TurtleCommand::HideTurtle => {
-            state.visible = false;
-        }
-
-        TurtleCommand::BeginFill => {
-            if state.filling.is_some() {
-                tracing::warn!("begin_fill() called while already filling");
-            }
-
-            let fill_color = state.fill_color.unwrap_or_else(|| {
-                tracing::warn!("No fill_color set, using black");
-                BLACK
-            });
-
-            state.begin_fill(fill_color);
-        }
-
-        TurtleCommand::EndFill => {
-            if let Some(mut fill_state) = state.filling.take() {
-                // Close final contour if it has vertices
-                if !fill_state.current_contour.is_empty() {
-                    fill_state.contours.push(fill_state.current_contour);
-                }
-
-                // Debug output
-                let span = tracing::debug_span!("end_fill", contours = fill_state.contours.len());
-                let _enter = span.enter();
-
-                for (i, contour) in fill_state.contours.iter().enumerate() {
-                    tracing::debug!(contour_idx = i, vertices = contour.len(), "Contour info");
-                }
-
-                // Create fill command - Lyon will handle EvenOdd automatically with multiple contours
-                if !fill_state.contours.is_empty() {
-                    if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
-                        &fill_state.contours,
-                        fill_state.fill_color,
-                    ) {
-                        tracing::debug!(
-                            contours = fill_state.contours.len(),
-                            "Successfully tessellated contours"
-                        );
-                        world.add_command(DrawCommand::Mesh(mesh_data));
-                    } else {
-                        tracing::error!("Failed to tessellate contours");
-                    }
-                }
-            } else {
-                tracing::warn!("end_fill() called without begin_fill()");
-            }
-        }
+        _ => {} // Already handled by execute_command_side_effects
     }
+
+    // Record fill vertices AFTER movement
+    record_fill_vertices_after_movement(command, &start_state, state);
 }
 
 /// Add drawing command for a completed tween (state transition already occurred)

@@ -3,8 +3,7 @@
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::{CommandQueue, TurtleCommand};
 use crate::general::AnimationSpeed;
-use crate::state::{DrawCommand, TurtleState};
-use crate::tessellation;
+use crate::state::TurtleState;
 use macroquad::prelude::*;
 use tween::{CubicInOut, TweenValue, Tweener};
 
@@ -94,107 +93,41 @@ impl TweenController {
                     None => break,
                 };
 
-                // Capture start state BEFORE executing this command
                 let start_state = state.clone();
 
                 // Handle SetSpeed command to potentially switch modes
                 if let TurtleCommand::SetSpeed(new_speed) = &command {
                     state.set_speed(*new_speed);
                     self.speed = *new_speed;
-                    // If speed switched to animated mode, exit instant mode processing
                     if matches!(self.speed, AnimationSpeed::Animated(_)) {
                         break;
                     }
                     continue;
                 }
 
-                // For commands with side effects (fill operations), handle specially
-                match &command {
-                    TurtleCommand::BeginFill => {
-                        let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
-                        state.begin_fill(fill_color);
-                        continue;
-                    }
-                    TurtleCommand::PenUp => {
-                        state.pen_down = false;
-                        // Close current contour if filling
-                        state.close_fill_contour();
-                        continue;
-                    }
-                    TurtleCommand::PenDown => {
-                        state.pen_down = true;
-                        // Start new contour if filling
-                        state.start_fill_contour();
-                        continue;
-                    }
-                    TurtleCommand::EndFill => {
-                        if let Some(mut fill_state) = state.filling.take() {
-                            // Close final contour if it has vertices
-                            if !fill_state.current_contour.is_empty() {
-                                fill_state.contours.push(fill_state.current_contour);
-                            }
-                            // Create fill command - Lyon will handle EvenOdd automatically
-                            if !fill_state.contours.is_empty() {
-                                if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
-                                    &fill_state.contours,
-                                    fill_state.fill_color,
-                                ) {
-                                    commands.push(DrawCommand::Mesh(mesh_data));
-                                }
-                            }
-                        }
-                        continue;
-                    }
-                    _ => {}
+                // Execute side-effect-only commands using centralized helper
+                if crate::execution::execute_command_side_effects(&command, state, commands) {
+                    continue; // Command fully handled
                 }
 
-                // Execute command immediately
+                // Execute movement commands
                 let target_state = self.calculate_target_state(state, &command);
                 *state = target_state.clone();
 
-                // Record vertices after position update if filling
-                match &command {
-                    TurtleCommand::Circle {
-                        radius,
-                        angle,
-                        steps,
-                        direction,
-                    } => {
-                        // For circles, record multiple vertices along the arc
-                        if state.filling.is_some() {
-                            use crate::circle_geometry::CircleGeometry;
-                            let geom = CircleGeometry::new(
-                                start_state.position,
-                                start_state.heading,
-                                *radius,
-                                *direction,
-                            );
-                            state.record_fill_vertices_for_arc(
-                                geom.center,
-                                *radius,
-                                geom.start_angle_from_center,
-                                angle.to_radians(),
-                                *direction,
-                                *steps as u32,
-                            );
-                        }
-                    }
-                    TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-                        state.record_fill_vertex();
-                    }
-                    _ => {}
-                }
+                // Record fill vertices AFTER movement using centralized helper
+                crate::execution::record_fill_vertices_after_movement(
+                    &command,
+                    &start_state,
+                    state,
+                );
 
-                // Capture end state AFTER executing this command
                 let end_state = state.clone();
 
-                // Collect drawable commands with their individual start and end states
-                // Only create line drawing if pen is down
+                // Collect drawable commands
                 if Self::command_creates_drawing(&command) && start_state.pen_down {
                     completed_commands.push((command, start_state, end_state));
                     draw_call_count += 1;
 
-                    // Stop if we've reached the draw call limit for this frame
                     if draw_call_count >= max_draw_calls {
                         break;
                     }
@@ -269,97 +202,34 @@ impl TweenController {
 
             // Check if tween is finished (use heading_tweener as it's used by all commands)
             if tween.heading_tweener.is_finished() {
-                // Tween complete, finalize state
                 let start_state = tween.start_state.clone();
                 *state = tween.target_state.clone();
                 let end_state = state.clone();
 
-                // Return the completed command and start/end states
                 let completed_command = tween.command.clone();
                 self.current_tween = None;
 
-                // Handle fill commands that have side effects
-                match &completed_command {
-                    TurtleCommand::BeginFill => {
-                        let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
-                        state.begin_fill(fill_color);
-                        // Don't return, continue to next command
-                        return self.update(state, commands);
-                    }
-                    TurtleCommand::EndFill => {
-                        if let Some(mut fill_state) = state.filling.take() {
-                            // Close final contour if it has vertices
-                            if !fill_state.current_contour.is_empty() {
-                                fill_state.contours.push(fill_state.current_contour);
-                            }
-                            // Create fill command - Lyon will handle EvenOdd automatically
-                            if !fill_state.contours.is_empty() {
-                                if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
-                                    &fill_state.contours,
-                                    fill_state.fill_color,
-                                ) {
-                                    commands.push(DrawCommand::Mesh(mesh_data));
-                                }
-                            }
-                        }
-                        // Don't return, continue to next command
-                        return self.update(state, commands);
-                    }
-                    TurtleCommand::Circle {
-                        radius,
-                        angle,
-                        steps,
-                        direction,
-                    } => {
-                        // For circles, record multiple vertices along the arc
-                        if state.filling.is_some() {
-                            use crate::circle_geometry::CircleGeometry;
-                            let geom = CircleGeometry::new(
-                                start_state.position,
-                                start_state.heading,
-                                *radius,
-                                *direction,
-                            );
-                            state.record_fill_vertices_for_arc(
-                                geom.center,
-                                *radius,
-                                geom.start_angle_from_center,
-                                angle.to_radians(),
-                                *direction,
-                                *steps as u32,
-                            );
-                        }
+                // Execute side-effect-only commands using centralized helper
+                if crate::execution::execute_command_side_effects(
+                    &completed_command,
+                    state,
+                    commands,
+                ) {
+                    return self.update(state, commands); // Continue to next command
+                }
 
-                        if Self::command_creates_drawing(&completed_command) && start_state.pen_down
-                        {
-                            return vec![(completed_command, start_state, end_state)];
-                        } else {
-                            // Movement but no drawing (pen up) - continue
-                            return self.update(state, commands);
-                        }
-                    }
-                    TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-                        // Movement commands: record vertex if filling
-                        state.record_fill_vertex();
+                // Record fill vertices for movement commands using centralized helper
+                crate::execution::record_fill_vertices_after_movement(
+                    &completed_command,
+                    &start_state,
+                    state,
+                );
 
-                        if Self::command_creates_drawing(&completed_command) && start_state.pen_down
-                        {
-                            return vec![(completed_command, start_state, end_state)];
-                        } else {
-                            // Movement but no drawing (pen up) - continue
-                            return self.update(state, commands);
-                        }
-                    }
-                    _ if Self::command_creates_drawing(&completed_command)
-                        && start_state.pen_down =>
-                    {
-                        // Return drawable commands
-                        return vec![(completed_command, start_state, end_state)];
-                    }
-                    _ => {
-                        // Non-drawable, non-fill commands - continue to next
-                        return self.update(state, commands);
-                    }
+                // Return drawable commands
+                if Self::command_creates_drawing(&completed_command) && start_state.pen_down {
+                    return vec![(completed_command, start_state, end_state)];
+                } else {
+                    return self.update(state, commands); // Continue to next command
                 }
             }
 
@@ -375,47 +245,21 @@ impl TweenController {
                 TurtleCommand::SetSpeed(new_speed) => {
                     state.set_speed(*new_speed);
                     self.speed = *new_speed;
-                    // If switched to instant mode, process commands immediately
                     if matches!(self.speed, AnimationSpeed::Instant(_)) {
-                        return self.update(state, commands); // Recursively process in instant mode
-                    }
-                    // For animated mode speed changes, continue to next command
-                    return self.update(state, commands);
-                }
-                TurtleCommand::PenUp => {
-                    state.pen_down = false;
-                    state.close_fill_contour();
-                    return self.update(state, commands);
-                }
-                TurtleCommand::PenDown => {
-                    state.pen_down = true;
-                    state.start_fill_contour();
-                    return self.update(state, commands);
-                }
-                TurtleCommand::BeginFill => {
-                    let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
-                    state.begin_fill(fill_color);
-                    return self.update(state, commands);
-                }
-                TurtleCommand::EndFill => {
-                    if let Some(mut fill_state) = state.filling.take() {
-                        // Close final contour if it has vertices
-                        if !fill_state.current_contour.is_empty() {
-                            fill_state.contours.push(fill_state.current_contour);
-                        }
-                        // Create fill command - Lyon will handle EvenOdd automatically
-                        if !fill_state.contours.is_empty() {
-                            if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
-                                &fill_state.contours,
-                                fill_state.fill_color,
-                            ) {
-                                commands.push(DrawCommand::Mesh(mesh_data));
-                            }
-                        }
+                        return self.update(state, commands);
                     }
                     return self.update(state, commands);
                 }
-                _ => {}
+                _ => {
+                    // Use centralized helper for side effects
+                    if crate::execution::execute_command_side_effects(
+                        &command_clone,
+                        state,
+                        commands,
+                    ) {
+                        return self.update(state, commands);
+                    }
+                }
             }
 
             let speed = state.speed; // Extract speed before borrowing self
