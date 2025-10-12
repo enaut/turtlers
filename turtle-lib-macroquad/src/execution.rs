@@ -58,7 +58,7 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                     arc_degrees,
                     state.color,
                     state.pen_width,
-                    *steps as u8,
+                    *steps,
                 ) {
                     world.add_command(DrawCommand::Mesh(mesh_data));
                 }
@@ -248,7 +248,7 @@ pub fn add_draw_for_completed_tween(
                     arc_degrees,
                     start_state.color,
                     start_state.pen_width,
-                    *steps as u8,
+                    *steps,
                 ) {
                     world.add_command(DrawCommand::Mesh(mesh_data));
                 }

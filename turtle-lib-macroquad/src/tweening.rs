@@ -419,7 +419,7 @@ impl TweenController {
             }
 
             let speed = state.speed; // Extract speed before borrowing self
-            let duration = self.calculate_duration(&command_clone, speed);
+            let duration = self.calculate_duration_with_state(&command_clone, state, speed);
 
             // Calculate target state
             let target_state = self.calculate_target_state(state, &command_clone);
@@ -477,7 +477,12 @@ impl TweenController {
         )
     }
 
-    fn calculate_duration(&self, command: &TurtleCommand, speed: AnimationSpeed) -> f64 {
+    fn calculate_duration_with_state(
+        &self,
+        command: &TurtleCommand,
+        current: &TurtleState,
+        speed: AnimationSpeed,
+    ) -> f64 {
         let speed = speed.value();
 
         let base_time = match command {
@@ -490,9 +495,12 @@ impl TweenController {
                 let arc_length = radius * angle.to_radians().abs();
                 arc_length / speed
             }
-            TurtleCommand::Goto(_target) => {
-                // Calculate distance (handled in calculate_target_state)
-                0.1 // Placeholder, will be calculated properly
+            TurtleCommand::Goto(target) => {
+                // Calculate actual distance from current position to target
+                let dx = target.x - current.position.x;
+                let dy = target.y - current.position.y;
+                let distance = (dx * dx + dy * dy).sqrt();
+                distance / speed
             }
             _ => 0.0, // Instant commands
         };

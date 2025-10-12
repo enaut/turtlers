@@ -267,8 +267,11 @@ fn draw_tween_arc(
         direction,
     );
 
-    // Debug: draw center
-    draw_circle(geom.center.x, geom.center.y, 5.0, GRAY);
+    // Debug: draw center using Lyon tessellation
+    if let Ok(mesh_data) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0)
+    {
+        draw_mesh(&mesh_data.to_mesh());
+    }
 
     // Calculate how much of the arc we've traveled based on tween progress
     // Use the same eased progress as the turtle position for synchronized animation
@@ -278,20 +281,18 @@ fn draw_tween_arc(
     let angle_traveled = total_angle.to_radians() * progress;
     let (rotation_degrees, arc_degrees) = geom.draw_arc_params_partial(angle_traveled);
 
-    // Adjust radius inward by half the line width so the line sits on the turtle's path
-    let draw_radius = radius - tween.start_state.pen_width / 2.0;
-
-    // Draw the partial arc
-    draw_arc(
-        geom.center.x,
-        geom.center.y,
-        steps as u8,
-        draw_radius,
+    // Use Lyon to tessellate and draw the partial arc
+    if let Ok(mesh_data) = crate::tessellation::tessellate_arc(
+        geom.center,
+        radius,
         rotation_degrees,
-        tween.start_state.pen_width,
         arc_degrees,
         tween.start_state.color,
-    );
+        tween.start_state.pen_width,
+        steps,
+    ) {
+        draw_mesh(&mesh_data.to_mesh());
+    }
 }
 
 /// Draw the turtle shape

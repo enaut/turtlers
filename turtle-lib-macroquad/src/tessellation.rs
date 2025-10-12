@@ -266,7 +266,7 @@ pub fn tessellate_arc(
     arc_angle_degrees: f32,
     color: Color,
     stroke_width: f32,
-    segments: u8,
+    segments: usize,
 ) -> Result<MeshData, Box<dyn std::error::Error>> {
     // Build arc path manually from segments
     let mut builder = Path::builder();
