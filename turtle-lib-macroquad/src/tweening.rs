@@ -56,12 +56,13 @@ pub(crate) struct CommandTween {
     pub duration: f64,
     pub start_state: TurtleState,
     pub target_state: TurtleState,
-    pub position_tweener: Tweener<TweenVec2, f32, CubicInOut>,
-    pub heading_tweener: Tweener<f32, f32, CubicInOut>,
-    pub pen_width_tweener: Tweener<f32, f32, CubicInOut>,
+    pub position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
+    pub heading_tweener: Tweener<f32, f64, CubicInOut>,
+    pub pen_width_tweener: Tweener<f32, f64, CubicInOut>,
 }
 
 impl TweenController {
+    #[must_use]
     pub fn new(queue: CommandQueue, speed: AnimationSpeed) -> Self {
         Self {
             queue,
@@ -74,9 +75,10 @@ impl TweenController {
         self.speed = speed;
     }
 
-    /// Update the tween, returns Vec of (command, start_state, end_state) for all completed commands this frame
+    /// Update the tween, returns `Vec` of (`command`, `start_state`, `end_state`) for all completed commands this frame
     /// Also takes commands vec to handle side effects like fill operations
-    /// Each command has its own start_state and end_state pair
+    /// Each `command` has its own `start_state` and `end_state` pair
+    #[allow(clippy::too_many_lines)]
     pub fn update(
         &mut self,
         state: &mut TurtleState,
@@ -87,12 +89,7 @@ impl TweenController {
             let mut completed_commands = Vec::new();
             let mut draw_call_count = 0;
 
-            loop {
-                let command = match self.queue.next() {
-                    Some(cmd) => cmd.clone(),
-                    None => break,
-                };
-
+            for command in self.queue.by_ref() {
                 let start_state = state.clone();
 
                 // Handle SetSpeed command to potentially switch modes
@@ -111,7 +108,7 @@ impl TweenController {
                 }
 
                 // Execute movement commands
-                let target_state = self.calculate_target_state(state, &command);
+                let target_state = Self::calculate_target_state(state, &command);
                 *state = target_state.clone();
 
                 // Record fill vertices AFTER movement using centralized helper
@@ -139,7 +136,7 @@ impl TweenController {
 
         // Process current tween
         if let Some(ref mut tween) = self.current_tween {
-            let elapsed = (get_time() - tween.start_time) as f32;
+            let elapsed = get_time() - tween.start_time;
 
             // Use tweeners to calculate current values
             // For circles, calculate position along the arc instead of straight line
@@ -182,7 +179,7 @@ impl TweenController {
                 TurtleCommand::Turn(angle) => {
                     tween.start_state.heading + angle.to_radians() * progress
                 }
-                TurtleCommand::SetHeading(_) | _ => {
+                _ => {
                     // For other commands that change heading, lerp directly
                     let heading_diff = tween.target_state.heading - tween.start_state.heading;
                     tween.start_state.heading + heading_diff * progress
@@ -191,7 +188,7 @@ impl TweenController {
             state.pen_width = tween.pen_width_tweener.move_to(elapsed);
 
             // Discrete properties (switch at 50% progress)
-            let progress = (elapsed / tween.duration as f32).min(1.0);
+            let progress = (elapsed / tween.duration).min(1.0);
             if progress >= 0.5 {
                 state.pen_down = tween.target_state.pen_down;
                 state.color = tween.target_state.color;
@@ -228,9 +225,8 @@ impl TweenController {
                 // Return drawable commands
                 if Self::command_creates_drawing(&completed_command) && start_state.pen_down {
                     return vec![(completed_command, start_state, end_state)];
-                } else {
-                    return self.update(state, commands); // Continue to next command
                 }
+                return self.update(state, commands); // Continue to next command
             }
 
             return Vec::new();
@@ -263,30 +259,28 @@ impl TweenController {
             }
 
             let speed = state.speed; // Extract speed before borrowing self
-            let duration = self.calculate_duration_with_state(&command_clone, state, speed);
+            let duration = Self::calculate_duration_with_state(&command_clone, state, speed);
 
             // Calculate target state
-            let target_state = self.calculate_target_state(state, &command_clone);
+            let target_state = Self::calculate_target_state(state, &command_clone);
 
             // Create tweeners for smooth animation
             let position_tweener = Tweener::new(
                 TweenVec2::from(state.position),
                 TweenVec2::from(target_state.position),
-                duration as f32,
+                duration,
                 CubicInOut,
             );
 
             let heading_tweener = Tweener::new(
                 0.0, // We'll handle angle wrapping separately
-                1.0,
-                duration as f32,
-                CubicInOut,
+                1.0, duration, CubicInOut,
             );
 
             let pen_width_tweener = Tweener::new(
                 state.pen_width,
                 target_state.pen_width,
-                duration as f32,
+                duration,
                 CubicInOut,
             );
 
@@ -305,6 +299,7 @@ impl TweenController {
         Vec::new()
     }
 
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.current_tween.is_none() && self.queue.is_complete()
     }
@@ -322,7 +317,6 @@ impl TweenController {
     }
 
     fn calculate_duration_with_state(
-        &self,
         command: &TurtleCommand,
         current: &TurtleState,
         speed: AnimationSpeed,
@@ -348,14 +342,10 @@ impl TweenController {
             }
             _ => 0.0, // Instant commands
         };
-        base_time.max(0.01) as f64 // Minimum duration
+        f64::from(base_time.max(0.01)) // Minimum duration
     }
 
-    fn calculate_target_state(
-        &self,
-        current: &TurtleState,
-        command: &TurtleCommand,
-    ) -> TurtleState {
+    fn calculate_target_state(current: &TurtleState, command: &TurtleCommand) -> TurtleState {
         let mut target = current.clone();
 
         match command {

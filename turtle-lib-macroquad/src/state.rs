@@ -14,10 +14,10 @@ pub struct FillState {
     /// The first contour is the outer boundary, subsequent contours are holes.
     pub contours: Vec<Vec<Coordinate>>,
 
-    /// Current contour being built (vertices for the active pen_down segment)
+    /// Current contour being built (vertices for the active `pen_down` segment)
     pub current_contour: Vec<Coordinate>,
 
-    /// Fill color (cached from when begin_fill was called)
+    /// Fill color (cached from when `begin_fill` was called)
     pub fill_color: Color,
 }
 
@@ -60,6 +60,7 @@ impl TurtleState {
         self.speed = speed;
     }
 
+    #[must_use]
     pub fn heading_angle(&self) -> Angle {
         Angle::radians(self.heading)
     }
@@ -91,7 +92,7 @@ impl TurtleState {
         }
     }
 
-    /// Close the current contour and prepare for a new one (called on pen_up)
+    /// Close the current contour and prepare for a new one (called on `pen_up`)
     pub fn close_fill_contour(&mut self) {
         if let Some(ref mut fill_state) = self.filling {
             tracing::debug!(
@@ -128,7 +129,7 @@ impl TurtleState {
         }
     }
 
-    /// Start a new contour (called on pen_down)
+    /// Start a new contour (called on `pen_down`)
     pub fn start_fill_contour(&mut self) {
         if let Some(ref mut fill_state) = self.filling {
             // Start new contour at current position
@@ -195,7 +196,7 @@ impl TurtleState {
         }
     }
 
-    /// Clear fill state (called after end_fill)
+    /// Clear fill state (called after `end_fill`)
     pub fn reset_fill(&mut self) {
         self.filling = None;
     }
@@ -209,6 +210,7 @@ pub struct MeshData {
 }
 
 impl MeshData {
+    #[must_use]
     pub fn to_mesh(&self) -> macroquad::prelude::Mesh {
         macroquad::prelude::Mesh {
             vertices: self.vertices.clone(),
@@ -235,6 +237,7 @@ pub struct TurtleWorld {
 }
 
 impl TurtleWorld {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             turtle: TurtleState::default(),

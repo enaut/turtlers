@@ -31,7 +31,7 @@ impl Default for Angle {
 impl From<i16> for Angle {
     fn from(i: i16) -> Self {
         Self {
-            value: AngleUnit::Degrees(i as Precision),
+            value: AngleUnit::Degrees(Precision::from(i)),
         }
     }
 }
@@ -126,25 +126,28 @@ impl Sub for Angle {
 }
 
 impl Angle {
+    #[must_use]
     pub fn degrees(value: Precision) -> Self {
         Self {
             value: AngleUnit::Degrees(value),
         }
     }
 
+    #[must_use]
     pub fn radians(value: Precision) -> Self {
         Self {
             value: AngleUnit::Radians(value),
         }
     }
 
+    #[must_use]
     pub fn value(&self) -> Precision {
         match self.value {
-            AngleUnit::Degrees(v) => v,
-            AngleUnit::Radians(v) => v,
+            AngleUnit::Degrees(v) | AngleUnit::Radians(v) => v,
         }
     }
 
+    #[must_use]
     pub fn to_radians(self) -> Self {
         match self.value {
             AngleUnit::Degrees(v) => Self::radians(v.to_radians()),
@@ -152,6 +155,7 @@ impl Angle {
         }
     }
 
+    #[must_use]
     pub fn to_degrees(self) -> Self {
         match self.value {
             AngleUnit::Degrees(_) => self,
@@ -159,6 +163,7 @@ impl Angle {
         }
     }
 
+    #[must_use]
     pub fn limit_smaller_than_full_circle(self) -> Self {
         use std::f32::consts::PI;
         match self.value {

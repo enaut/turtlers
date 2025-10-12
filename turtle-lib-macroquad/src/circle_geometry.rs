@@ -1,4 +1,4 @@
-//! Circle geometry calculations - single source of truth for circle_left and circle_right
+//! Circle geometry calculations - single source of truth for `circle_left` and `circle_right`
 
 use macroquad::prelude::*;
 
@@ -19,6 +19,7 @@ pub struct CircleGeometry {
 
 impl CircleGeometry {
     /// Create geometry for a circle command
+    #[must_use]
     pub fn new(
         turtle_pos: Vec2,
         turtle_heading: f32,
@@ -58,6 +59,7 @@ impl CircleGeometry {
     }
 
     /// Calculate position after traveling an angle along the arc
+    #[must_use]
     pub fn position_at_angle(&self, angle_traveled: f32) -> Vec2 {
         let current_angle = match self.direction {
             CircleDirection::Left => self.start_angle_from_center - angle_traveled,
@@ -70,13 +72,15 @@ impl CircleGeometry {
         )
     }
 
-    /// Calculate position at a given progress (0.0 to 1.0) through total_angle
+    /// Calculate position at a given progress (0.0 to 1.0) through `total_angle`
+    #[must_use]
     pub fn position_at_progress(&self, total_angle: f32, progress: f32) -> Vec2 {
         let angle_traveled = total_angle * progress;
         self.position_at_angle(angle_traveled)
     }
 
     /// Get the angle traveled from start position to a given position
+    #[must_use]
     pub fn angle_to_position(&self, position: Vec2) -> f32 {
         let displacement = position - self.center;
         let current_angle = displacement.y.atan2(displacement.x);
@@ -94,8 +98,9 @@ impl CircleGeometry {
         angle_diff
     }
 
-    /// Get draw_arc parameters for the full arc
-    /// Returns (rotation_degrees, arc_degrees) for macroquad's draw_arc
+    /// Get `draw_arc` parameters for the full arc
+    /// Returns (`rotation_degrees`, `arc_degrees`) for macroquad's `draw_arc`
+    #[must_use]
     pub fn draw_arc_params(&self, total_angle_degrees: f32) -> (f32, f32) {
         match self.direction {
             CircleDirection::Left => {
@@ -114,8 +119,9 @@ impl CircleGeometry {
         }
     }
 
-    /// Get draw_arc parameters for a partial arc (during tweening)
-    /// Returns (rotation_degrees, arc_degrees) for macroquad's draw_arc
+    /// Get `draw_arc` parameters for a partial arc (during tweening)
+    /// Returns (`rotation_degrees`, `arc_degrees`) for macroquad's `draw_arc`
+    #[must_use]
     pub fn draw_arc_params_partial(&self, angle_traveled: f32) -> (f32, f32) {
         let angle_traveled_degrees = angle_traveled.to_degrees();
 

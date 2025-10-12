@@ -7,7 +7,7 @@ pub struct Length(pub Precision);
 
 impl From<i16> for Length {
     fn from(i: i16) -> Self {
-        Self(i as Precision)
+        Self(Precision::from(i))
     }
 }
 

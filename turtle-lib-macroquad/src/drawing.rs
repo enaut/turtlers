@@ -43,6 +43,7 @@ pub fn render_world(world: &TurtleWorld) {
 }
 
 /// Render the turtle world with active tween visualization
+#[allow(clippy::too_many_lines)]
 pub(crate) fn render_world_with_tween(
     world: &TurtleWorld,
     active_tween: Option<&crate::tweening::CommandTween>,
@@ -149,12 +150,12 @@ pub(crate) fn render_world_with_tween(
                     );
 
                     // Calculate progress
-                    let elapsed = (get_time() - tween.start_time) as f32;
-                    let progress = (elapsed / tween.duration as f32).min(1.0);
-                    let eased_progress = CubicInOut.tween(1.0, progress);
+                    let elapsed = get_time() - tween.start_time;
+                    let progress = (elapsed / tween.duration).min(1.0);
+                    let eased_progress = CubicInOut.tween(1.0, progress as f32);
 
                     // Generate arc vertices for the partial arc
-                    let num_samples = (*steps as usize).max(1);
+                    let num_samples = *steps.max(&1);
                     let samples_to_draw = ((num_samples as f32 * eased_progress) as usize).max(1);
 
                     for i in 1..=samples_to_draw {
@@ -275,9 +276,9 @@ fn draw_tween_arc(
 
     // Calculate how much of the arc we've traveled based on tween progress
     // Use the same eased progress as the turtle position for synchronized animation
-    let elapsed = (get_time() - tween.start_time) as f32;
-    let t = (elapsed / tween.duration as f32).min(1.0);
-    let progress = CubicInOut.tween(1.0, t); // tween from 0 to 1
+    let elapsed = get_time() - tween.start_time;
+    let t = (elapsed / tween.duration).min(1.0);
+    let progress = CubicInOut.tween(1.0, t as f32); // tween from 0 to 1
     let angle_traveled = total_angle.to_radians() * progress;
     let (rotation_degrees, arc_degrees) = geom.draw_arc_params_partial(angle_traveled);
 
@@ -308,22 +309,20 @@ pub fn draw_turtle(turtle: &TurtleState) {
                 .collect();
 
             // Use Lyon for turtle shape too
-            match tessellation::tessellate_polygon(
-                &absolute_vertices,
-                Color::new(0.0, 0.5, 1.0, 1.0),
-            ) {
-                Ok(mesh_data) => draw_mesh(&mesh_data.to_mesh()),
-                Err(_) => {
-                    // Fallback to simple triangle fan if Lyon fails
-                    let first = absolute_vertices[0];
-                    for i in 1..absolute_vertices.len() - 1 {
-                        draw_triangle(
-                            first,
-                            absolute_vertices[i],
-                            absolute_vertices[i + 1],
-                            Color::new(0.0, 0.5, 1.0, 1.0),
-                        );
-                    }
+            if let Ok(mesh_data) =
+                tessellation::tessellate_polygon(&absolute_vertices, Color::new(0.0, 0.5, 1.0, 1.0))
+            {
+                draw_mesh(&mesh_data.to_mesh());
+            } else {
+                // Fallback to simple triangle fan if Lyon fails
+                let first = absolute_vertices[0];
+                for i in 1..absolute_vertices.len() - 1 {
+                    draw_triangle(
+                        first,
+                        absolute_vertices[i],
+                        absolute_vertices[i + 1],
+                        Color::new(0.0, 0.5, 1.0, 1.0),
+                    );
                 }
             }
         }

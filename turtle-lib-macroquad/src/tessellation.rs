@@ -5,17 +5,22 @@
 
 use crate::state::MeshData;
 use lyon::math::{point, Point};
-use lyon::path::Path;
-use lyon::tessellation::*;
+use lyon::path::{LineCap, LineJoin, Path};
+use lyon::tessellation::{
+    BuffersBuilder, FillOptions, FillRule, FillTessellator, FillVertex, StrokeOptions,
+    StrokeTessellator, StrokeVertex, VertexBuffers,
+};
 use macroquad::prelude::*;
 
 /// Convert macroquad Vec2 to Lyon Point
+#[must_use]
 pub fn to_lyon_point(v: Vec2) -> Point {
     point(v.x, v.y)
 }
 
 /// Convert Lyon Point to macroquad Vec2
 #[allow(dead_code)]
+#[must_use]
 pub fn to_macroquad_vec2(p: Point) -> Vec2 {
     vec2(p.x, p.y)
 }
@@ -27,6 +32,7 @@ pub struct SimpleVertex {
 }
 
 /// Build mesh data from Lyon tessellation
+#[must_use]
 pub fn build_mesh_data(vertices: &[SimpleVertex], indices: &[u16], color: Color) -> MeshData {
     let verts: Vec<Vertex> = vertices
         .iter()
@@ -52,6 +58,10 @@ pub fn build_mesh_data(vertices: &[SimpleVertex], indices: &[u16], color: Color)
 /// Tessellate a polygon and return mesh
 ///
 /// This automatically handles holes when the path crosses itself.
+///
+/// # Errors
+///
+/// Returns an error if no vertices are provided or if tessellation fails.
 pub fn tessellate_polygon(
     vertices: &[Vec2],
     color: Color,
@@ -92,7 +102,11 @@ pub fn tessellate_polygon(
 /// Tessellate multiple contours (outer boundary + holes) and return mesh
 ///
 /// The first contour is the outer boundary, subsequent contours are holes.
-/// Lyon's EvenOdd fill rule automatically creates holes where contours overlap.
+/// Lyon's `EvenOdd` fill rule automatically creates holes where contours overlap.
+///
+/// # Errors
+///
+/// Returns an error if no contours are provided or if tessellation fails.
 pub fn tessellate_multi_contour(
     contours: &[Vec<Vec2>],
     color: Color,
@@ -163,7 +177,7 @@ pub fn tessellate_multi_contour(
             position: vertex.position().to_array(),
         }),
     ) {
-        Ok(_) => {
+        Ok(()) => {
             tracing::debug!(
                 vertices = geometry.vertices.len(),
                 indices = geometry.indices.len(),
@@ -185,6 +199,10 @@ pub fn tessellate_multi_contour(
 }
 
 /// Tessellate a stroked path and return mesh
+///
+/// # Errors
+///
+/// Returns an error if no vertices are provided or if tessellation fails.
 pub fn tessellate_stroke(
     vertices: &[Vec2],
     color: Color,
@@ -227,6 +245,10 @@ pub fn tessellate_stroke(
 }
 
 /// Tessellate a circle and return mesh
+///
+/// # Errors
+///
+/// Returns an error if tessellation fails.
 pub fn tessellate_circle(
     center: Vec2,
     radius: f32,
@@ -268,6 +290,10 @@ pub fn tessellate_circle(
 }
 
 /// Tessellate an arc (partial circle) and return mesh
+///
+/// # Errors
+///
+/// Returns an error if tessellation fails.
 pub fn tessellate_arc(
     center: Vec2,
     radius: f32,

@@ -14,11 +14,13 @@ pub struct TurtleShape {
 
 impl TurtleShape {
     /// Create a new custom shape from vertices
+    #[must_use]
     pub fn new(vertices: Vec<Vec2>, filled: bool) -> Self {
         Self { vertices, filled }
     }
 
     /// Get vertices rotated by the given angle
+    #[must_use]
     pub fn rotated_vertices(&self, angle: f32) -> Vec<Vec2> {
         self.vertices
             .iter()
@@ -31,6 +33,7 @@ impl TurtleShape {
     }
 
     /// Triangle shape (simple arrow pointing right)
+    #[must_use]
     pub fn triangle() -> Self {
         Self {
             vertices: vec![
@@ -43,6 +46,7 @@ impl TurtleShape {
     }
 
     /// Classic turtle shape
+    #[must_use]
     pub fn turtle() -> Self {
         // Based on the original turtle shape from turtle-lib
         let polygon: &[[f32; 2]; 23] = &[
@@ -89,6 +93,7 @@ impl TurtleShape {
     }
 
     /// Circle shape
+    #[must_use]
     pub fn circle() -> Self {
         let segments = 16;
         let radius = 10.0;
@@ -106,6 +111,7 @@ impl TurtleShape {
     }
 
     /// Square shape
+    #[must_use]
     pub fn square() -> Self {
         Self {
             vertices: vec![
@@ -119,6 +125,7 @@ impl TurtleShape {
     }
 
     /// Arrow shape (simple arrow pointing right)
+    #[must_use]
     pub fn arrow() -> Self {
         Self {
             vertices: vec![
@@ -133,9 +140,10 @@ impl TurtleShape {
 }
 
 /// Pre-defined shape types
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ShapeType {
     Triangle,
+    #[default]
     Turtle,
     Circle,
     Square,
@@ -143,7 +151,8 @@ pub enum ShapeType {
 }
 
 impl ShapeType {
-    /// Get the corresponding TurtleShape
+    /// Get the corresponding `TurtleShape`
+    #[must_use]
     pub fn to_shape(&self) -> TurtleShape {
         match self {
             ShapeType::Triangle => TurtleShape::triangle(),
@@ -152,11 +161,5 @@ impl ShapeType {
             ShapeType::Square => TurtleShape::square(),
             ShapeType::Arrow => TurtleShape::arrow(),
         }
-    }
-}
-
-impl Default for ShapeType {
-    fn default() -> Self {
-        ShapeType::Turtle
     }
 }

@@ -94,12 +94,14 @@ pub struct TurtlePlan {
 }
 
 impl TurtlePlan {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             queue: CommandQueue::new(),
         }
     }
 
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             queue: CommandQueue::with_capacity(capacity),
@@ -179,6 +181,7 @@ impl TurtlePlan {
         self
     }
 
+    #[must_use]
     pub fn build(self) -> CommandQueue {
         self.queue
     }

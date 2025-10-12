@@ -58,7 +58,8 @@ pub struct TurtleApp {
 }
 
 impl TurtleApp {
-    /// Create a new TurtleApp with default settings
+    /// Create a new `TurtleApp` with default settings
+    #[must_use]
     pub fn new() -> Self {
         Self {
             world: TurtleWorld::new(),
@@ -72,15 +73,16 @@ impl TurtleApp {
 
     /// Add commands to the turtle
     ///
-    /// Speed is controlled by SetSpeed commands in the queue.
+    /// Speed is controlled by `SetSpeed` commands in the queue.
     /// Use `set_speed()` on the turtle plan to set animation speed.
     /// Speed >= 999 = instant mode, speed < 999 = animated mode.
     ///
     /// # Arguments
     /// * `queue` - The command queue to execute
+    #[must_use]
     pub fn with_commands(mut self, queue: CommandQueue) -> Self {
-        // The TweenController will switch between instant and animated mode
-        // based on SetSpeed commands encountered
+        // The `TweenController` will switch between instant and animated mode
+        // based on `SetSpeed` commands encountered
         self.tween_controller = Some(TweenController::new(queue, self.speed));
         self
     }
@@ -164,14 +166,15 @@ impl TurtleApp {
     }
 
     /// Check if all commands have been executed
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.tween_controller
             .as_ref()
-            .map(|c| c.is_complete())
-            .unwrap_or(true)
+            .is_none_or(TweenController::is_complete)
     }
 
     /// Get reference to the world state
+    #[must_use]
     pub fn world(&self) -> &TurtleWorld {
         &self.world
     }
@@ -198,11 +201,13 @@ impl Default for TurtleApp {
 /// turtle.forward(100.0).right(90.0).forward(50.0);
 /// let commands = turtle.build();
 /// ```
+#[must_use]
 pub fn create_turtle() -> TurtlePlan {
     TurtlePlan::new()
 }
 
-/// Convenience function to get a turtle plan (alias for create_turtle)
+/// Convenience function to get a turtle plan (alias for `create_turtle`)
+#[must_use]
 pub fn get_a_turtle() -> TurtlePlan {
     create_turtle()
 }

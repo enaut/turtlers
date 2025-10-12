@@ -52,13 +52,14 @@ pub struct CommandQueue {
 }
 
 impl CommandQueue {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             commands: Vec::new(),
             current_index: 0,
         }
     }
-
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             commands: Vec::with_capacity(capacity),
@@ -73,33 +74,23 @@ impl CommandQueue {
     pub fn extend(&mut self, commands: impl IntoIterator<Item = TurtleCommand>) {
         self.commands.extend(commands);
     }
-
-    pub fn next(&mut self) -> Option<&TurtleCommand> {
-        if self.current_index < self.commands.len() {
-            let cmd = &self.commands[self.current_index];
-            self.current_index += 1;
-            Some(cmd)
-        } else {
-            None
-        }
-    }
-
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.current_index >= self.commands.len()
     }
-
     pub fn reset(&mut self) {
         self.current_index = 0;
     }
-
+    #[must_use]
     pub fn len(&self) -> usize {
         self.commands.len()
     }
-
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
     }
 
+    #[must_use]
     pub fn remaining(&self) -> usize {
         self.commands.len().saturating_sub(self.current_index)
     }
@@ -108,5 +99,19 @@ impl CommandQueue {
 impl Default for CommandQueue {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Iterator for CommandQueue {
+    type Item = TurtleCommand;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index < self.commands.len() {
+            let cmd = self.commands[self.current_index].clone();
+            self.current_index += 1;
+            Some(cmd)
+        } else {
+            None
+        }
     }
 }

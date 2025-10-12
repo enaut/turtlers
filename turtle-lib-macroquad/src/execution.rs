@@ -280,9 +280,6 @@ pub fn add_draw_for_completed_tween(
                 }
             }
         }
-        TurtleCommand::BeginFill | TurtleCommand::EndFill => {
-            // No immediate drawing for fill commands, handled in execute_command
-        }
         _ => {
             // Other commands don't create drawing
         }
