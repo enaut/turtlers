@@ -86,7 +86,7 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             state.pen_down = false;
             // Close current contour if filling
             if state.filling.is_some() {
-                eprintln!("PenUp: Closing current contour");
+                tracing::debug!("PenUp: Closing current contour");
             }
             state.close_fill_contour();
         }
@@ -95,9 +95,10 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             state.pen_down = true;
             // Start new contour if filling
             if state.filling.is_some() {
-                eprintln!(
-                    "PenDown: Starting new contour at position ({}, {})",
-                    state.position.x, state.position.y
+                tracing::debug!(
+                    x = state.position.x,
+                    y = state.position.y,
+                    "PenDown: Starting new contour"
                 );
             }
             state.start_fill_contour();
@@ -157,11 +158,11 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
 
         TurtleCommand::BeginFill => {
             if state.filling.is_some() {
-                eprintln!("Warning: begin_fill() called while already filling");
+                tracing::warn!("begin_fill() called while already filling");
             }
 
             let fill_color = state.fill_color.unwrap_or_else(|| {
-                eprintln!("Warning: No fill_color set, using black");
+                tracing::warn!("No fill_color set, using black");
                 BLACK
             });
 
@@ -176,10 +177,11 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                 }
 
                 // Debug output
-                eprintln!("=== EndFill Debug ===");
-                eprintln!("Total contours: {}", fill_state.contours.len());
+                let span = tracing::debug_span!("end_fill", contours = fill_state.contours.len());
+                let _enter = span.enter();
+
                 for (i, contour) in fill_state.contours.iter().enumerate() {
-                    eprintln!("  Contour {}: {} vertices", i, contour.len());
+                    tracing::debug!(contour_idx = i, vertices = contour.len(), "Contour info");
                 }
 
                 // Create fill command - Lyon will handle EvenOdd automatically with multiple contours
@@ -188,17 +190,17 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                         &fill_state.contours,
                         fill_state.fill_color,
                     ) {
-                        eprintln!(
-                            "Successfully tessellated {} contours",
-                            fill_state.contours.len()
+                        tracing::debug!(
+                            contours = fill_state.contours.len(),
+                            "Successfully tessellated contours"
                         );
                         world.add_command(DrawCommand::Mesh(mesh_data));
                     } else {
-                        eprintln!("ERROR: Failed to tessellate contours!");
+                        tracing::error!("Failed to tessellate contours");
                     }
                 }
             } else {
-                eprintln!("Warning: end_fill() called without begin_fill()");
+                tracing::warn!("end_fill() called without begin_fill()");
             }
         }
     }

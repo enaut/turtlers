@@ -229,9 +229,9 @@ pub(crate) fn render_world_with_tween(
                     draw_mesh(&mesh_data.to_mesh());
                 }
                 Err(e) => {
-                    eprintln!(
-                        "#### Lyon multi-contour tessellation error for fill preview: {:?}",
-                        e
+                    tracing::error!(
+                        error = ?e,
+                        "Lyon multi-contour tessellation error for fill preview"
                     );
                 }
             }

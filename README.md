@@ -12,9 +12,10 @@ A modern turtle graphics library for Rust built on [Macroquad](https://macroquad
 - ⚡ **Smooth Animations**: Tweening support with easing functions and live fill preview
 - 🚀 **Instant Mode**: Execute commands immediately without animation (speed ≥ 999)
 - 🎯 **High-Quality Rendering**: Complete Lyon tessellation pipeline with GPU acceleration
-- 🕳️ **Multi-Contour Fills**: Automatic hole detection with EvenOdd fill rule - draw cheese with holes!
+- **Multi-Contour Fills**: Automatic hole detection with EvenOdd fill rule - draw cheese with holes!
 - 📐 **Self-Intersecting Paths**: Stars, complex shapes - all handled correctly
 - 🐢 **Multiple Turtle Shapes**: Triangle, classic turtle, circle, square, arrow, and custom shapes
+- 🔍 **Structured Logging**: Optional `tracing` integration for debugging (zero overhead when disabled)
 - 💨 **Lightweight**: Fast compilation and runtime
 
 ## Quick Start
@@ -149,6 +150,33 @@ loop {
 }
 ```
 
+## Debugging and Logging
+
+The library uses [`tracing`](https://docs.rs/tracing) for structured diagnostic logging. This is completely optional - if you don't set up a subscriber, there's zero overhead.
+
+### Enable Logging
+
+```rust
+// Add to your Cargo.toml:
+// tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+tracing_subscriber::fmt()
+    .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+    .init();
+```
+
+Control verbosity with the `RUST_LOG` environment variable:
+
+```bash
+# Show debug output
+RUST_LOG=turtle_lib_macroquad=debug cargo run
+
+# Very verbose trace output
+RUST_LOG=turtle_lib_macroquad=trace cargo run
+```
+
+**See the complete example**: [`examples/logging_example.rs`](turtle-lib-macroquad/examples/logging_example.rs) demonstrates initialization, log levels, filtering, and example output.
+
 ## Examples
 
 Run examples with:
@@ -160,6 +188,10 @@ cargo run --example shapes
 cargo run --example yinyang
 cargo run --example stern
 cargo run --example nikolaus
+
+# Logging example - shows how to enable debug output
+cargo run --example logging_example
+RUST_LOG=turtle_lib_macroquad=debug cargo run --example logging_example
 
 # Lyon proof-of-concept examples
 cargo run --package turtle-lyon-poc --example yinyang --release
@@ -183,6 +215,9 @@ cargo run --package turtle-lyon-poc --example fill_comparison --release
 - **fill_advanced.rs**: Complex shapes (star, swiss cheese, multiple holes)
 - **fill_circle_test.rs**: Circle fills with different angles
 - **fill_instant_test.rs**: Quick fill test in instant mode
+
+#### Debugging
+- **logging_example.rs**: Demonstrates how to enable and use tracing/logging output
 
 ## Why Lyon?
 

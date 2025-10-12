@@ -101,25 +101,32 @@ pub fn tessellate_multi_contour(
         return Err("No contours provided".into());
     }
 
-    eprintln!("\n=== tessellate_multi_contour Debug ===");
-    eprintln!("Total contours to tessellate: {}", contours.len());
+    let span = tracing::debug_span!("tessellate_multi_contour", contours = contours.len());
+    let _enter = span.enter();
+
+    tracing::debug!("Starting multi-contour tessellation");
 
     // Build path with multiple sub-paths (contours)
     let mut builder = Path::builder();
 
     for (idx, contour) in contours.iter().enumerate() {
         if contour.is_empty() {
-            eprintln!("WARNING: Contour {} is empty, skipping", idx);
+            tracing::warn!(contour_idx = idx, "Contour is empty, skipping");
             continue;
         }
 
-        eprintln!("\nContour {}: {} vertices", idx, contour.len());
-        eprintln!("  First vertex: ({:.2}, {:.2})", contour[0].x, contour[0].y);
+        tracing::trace!(
+            contour_idx = idx,
+            vertices = contour.len(),
+            first_x = contour[0].x,
+            first_y = contour[0].y,
+            "Processing contour"
+        );
         if contour.len() > 1 {
-            eprintln!(
-                "  Last vertex:  ({:.2}, {:.2})",
-                contour[contour.len() - 1].x,
-                contour[contour.len() - 1].y
+            tracing::trace!(
+                last_x = contour[contour.len() - 1].x,
+                last_y = contour[contour.len() - 1].y,
+                "Contour end vertex"
             );
         }
 
@@ -128,24 +135,27 @@ pub fn tessellate_multi_contour(
         for (i, v) in contour[1..].iter().enumerate() {
             builder.line_to(to_lyon_point(*v));
             if i < 3 || i >= contour.len() - 4 {
-                eprintln!("    Vertex {}: ({:.2}, {:.2})", i + 1, v.x, v.y);
+                tracing::trace!(vertex_idx = i + 1, x = v.x, y = v.y, "Contour vertex");
             } else if i == 3 {
-                eprintln!("    ... ({} more vertices)", contour.len() - 7);
+                tracing::trace!(
+                    omitted = contour.len() - 7,
+                    "Additional vertices omitted from trace"
+                );
             }
         }
         builder.end(true); // Close this contour
-        eprintln!("  Contour closed");
+        tracing::trace!(contour_idx = idx, "Contour closed");
     }
 
-    eprintln!("\nBuilding Lyon path...");
+    tracing::debug!("Building Lyon path");
     let path = builder.build();
-    eprintln!("Path built successfully");
+    tracing::debug!("Path built successfully");
 
     // Tessellate with EvenOdd fill rule - overlapping areas become holes
     let mut geometry: VertexBuffers<SimpleVertex, u16> = VertexBuffers::new();
     let mut tessellator = FillTessellator::new();
 
-    eprintln!("Starting tessellation with EvenOdd fill rule...");
+    tracing::debug!("Starting tessellation with EvenOdd fill rule");
     match tessellator.tessellate_path(
         &path,
         &FillOptions::default().with_fill_rule(FillRule::EvenOdd),
@@ -154,16 +164,15 @@ pub fn tessellate_multi_contour(
         }),
     ) {
         Ok(_) => {
-            eprintln!("Tessellation successful!");
-            eprintln!(
-                "  Generated {} vertices, {} indices",
-                geometry.vertices.len(),
-                geometry.indices.len()
+            tracing::debug!(
+                vertices = geometry.vertices.len(),
+                indices = geometry.indices.len(),
+                triangles = geometry.indices.len() / 3,
+                "Tessellation successful"
             );
-            eprintln!("  Triangles: {}", geometry.indices.len() / 3);
         }
         Err(e) => {
-            eprintln!("ERROR: Tessellation failed: {}", e);
+            tracing::error!(error = %e, "Tessellation failed");
             return Err(Box::new(e));
         }
     }

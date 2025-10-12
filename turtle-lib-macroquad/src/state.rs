@@ -78,15 +78,15 @@ impl TurtleState {
     pub fn record_fill_vertex(&mut self) {
         if let Some(ref mut fill_state) = self.filling {
             if self.pen_down {
-                eprintln!(
-                    "    [FILL] Adding vertex ({:.2}, {:.2}) to current contour (now {} vertices)",
-                    self.position.x,
-                    self.position.y,
-                    fill_state.current_contour.len() + 1
+                tracing::trace!(
+                    x = self.position.x,
+                    y = self.position.y,
+                    vertices = fill_state.current_contour.len() + 1,
+                    "Adding vertex to current contour"
                 );
                 fill_state.current_contour.push(self.position);
             } else {
-                eprintln!("    [FILL] Skipping vertex (pen is up)");
+                tracing::trace!("Skipping vertex (pen is up)");
             }
         }
     }
@@ -94,42 +94,37 @@ impl TurtleState {
     /// Close the current contour and prepare for a new one (called on pen_up)
     pub fn close_fill_contour(&mut self) {
         if let Some(ref mut fill_state) = self.filling {
-            eprintln!(
-                "  close_fill_contour called: current_contour has {} vertices",
-                fill_state.current_contour.len()
+            tracing::debug!(
+                vertices = fill_state.current_contour.len(),
+                "close_fill_contour called"
             );
             // Only close if we have vertices in current contour
             if fill_state.current_contour.len() >= 2 {
-                eprintln!(
-                    "  Closing contour with {} vertices",
-                    fill_state.current_contour.len()
-                );
-                eprintln!(
-                    "    First: ({:.2}, {:.2})",
-                    fill_state.current_contour[0].x, fill_state.current_contour[0].y
-                );
-                eprintln!(
-                    "    Last:  ({:.2}, {:.2})",
-                    fill_state.current_contour[fill_state.current_contour.len() - 1].x,
-                    fill_state.current_contour[fill_state.current_contour.len() - 1].y
+                tracing::debug!(
+                    vertices = fill_state.current_contour.len(),
+                    first_x = fill_state.current_contour[0].x,
+                    first_y = fill_state.current_contour[0].y,
+                    last_x = fill_state.current_contour[fill_state.current_contour.len() - 1].x,
+                    last_y = fill_state.current_contour[fill_state.current_contour.len() - 1].y,
+                    "Closing contour"
                 );
                 // Move current contour to completed contours
                 let contour = std::mem::take(&mut fill_state.current_contour);
                 fill_state.contours.push(contour);
-                eprintln!(
-                    "  Contour moved to completed list. Total completed contours: {}",
-                    fill_state.contours.len()
+                tracing::debug!(
+                    completed_contours = fill_state.contours.len(),
+                    "Contour moved to completed list"
                 );
             } else if !fill_state.current_contour.is_empty() {
-                eprintln!(
-                    "  WARNING: Current contour only has {} vertex/vertices, not closing",
-                    fill_state.current_contour.len()
+                tracing::warn!(
+                    vertices = fill_state.current_contour.len(),
+                    "Current contour has insufficient vertices, not closing"
                 );
             } else {
-                eprintln!("  WARNING: Current contour is EMPTY, nothing to close");
+                tracing::warn!("Current contour is empty, nothing to close");
             }
         } else {
-            eprintln!("  close_fill_contour called but NO active fill state!");
+            tracing::warn!("close_fill_contour called but no active fill state");
         }
     }
 
@@ -137,13 +132,11 @@ impl TurtleState {
     pub fn start_fill_contour(&mut self) {
         if let Some(ref mut fill_state) = self.filling {
             // Start new contour at current position
-            eprintln!(
-                "  Starting NEW contour at ({:.2}, {:.2})",
-                self.position.x, self.position.y
-            );
-            eprintln!(
-                "  Previous contour had {} completed contours",
-                fill_state.contours.len()
+            tracing::debug!(
+                x = self.position.x,
+                y = self.position.y,
+                completed_contours = fill_state.contours.len(),
+                "Starting new contour"
             );
             fill_state.current_contour = vec![self.position];
         }
@@ -165,8 +158,14 @@ impl TurtleState {
                 // Sample points along the arc based on steps
                 let num_samples = steps as usize;
 
-                eprintln!("    [FILL ARC] Recording arc vertices: center=({:.2}, {:.2}), radius={:.2}, steps={}, num_samples={}", 
-                    center.x, center.y, radius, steps, num_samples);
+                tracing::trace!(
+                    center_x = center.x,
+                    center_y = center.y,
+                    radius = radius,
+                    steps = steps,
+                    num_samples = num_samples,
+                    "Recording arc vertices"
+                );
 
                 for i in 1..=num_samples {
                     let progress = i as f32 / num_samples as f32;
@@ -183,12 +182,12 @@ impl TurtleState {
                         center.x + radius * current_angle.cos(),
                         center.y + radius * current_angle.sin(),
                     );
-                    eprintln!(
-                        "    [FILL ARC] Vertex {}: ({:.2}, {:.2}) at angle {:.2}°",
-                        i,
-                        vertex.x,
-                        vertex.y,
-                        current_angle.to_degrees()
+                    tracing::trace!(
+                        vertex_idx = i,
+                        x = vertex.x,
+                        y = vertex.y,
+                        angle_degrees = current_angle.to_degrees(),
+                        "Arc vertex"
                     );
                     fill_state.current_contour.push(vertex);
                 }
