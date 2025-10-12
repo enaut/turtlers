@@ -1,7 +1,7 @@
 //! Builder pattern traits for creating turtle command sequences
 
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::{AnimationSpeed, Color, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, Precision};
 use crate::shapes::{ShapeType, TurtleShape};
 
 /// Trait for adding commands to a queue
@@ -114,7 +114,7 @@ impl TurtlePlan {
         self
     }
 
-    pub fn set_color(&mut self, color: Color) -> &mut Self {
+    pub fn set_pen_color(&mut self, color: Color) -> &mut Self {
         self.queue.push(TurtleCommand::SetColor(color));
         self
     }
@@ -156,6 +156,27 @@ impl TurtlePlan {
 
     pub fn shape(&mut self, shape_type: ShapeType) -> &mut Self {
         self.set_shape(shape_type.to_shape())
+    }
+
+    pub fn begin_fill(&mut self) -> &mut Self {
+        self.queue.push(TurtleCommand::BeginFill);
+        self
+    }
+
+    pub fn end_fill(&mut self) -> &mut Self {
+        self.queue.push(TurtleCommand::EndFill);
+        self
+    }
+
+    pub fn set_fill_color(&mut self, color: impl Into<Color>) -> &mut Self {
+        self.queue
+            .push(TurtleCommand::SetFillColor(Some(color.into())));
+        self
+    }
+
+    pub fn go_to(&mut self, coord: impl Into<Coordinate>) -> &mut Self {
+        self.queue.push(TurtleCommand::Goto(coord.into()));
+        self
     }
 
     pub fn build(self) -> CommandQueue {

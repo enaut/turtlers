@@ -7,8 +7,10 @@ use turtle_lib_macroquad::*;
 async fn main() {
     // Create a turtle plan
     let mut t = create_turtle();
+    t.set_speed(900);
 
     t.circle_left(90.0, 180.0, 36);
+    t.begin_fill();
     t.circle_left(90.0, 180.0, 36);
     t.circle_left(45.0, 180.0, 26);
     t.circle_right(45.0, 180.0, 26);
@@ -24,6 +26,7 @@ async fn main() {
     t.left(90.0);
     t.pen_down();
     t.circle_right(8.0, 360.0, 12);
+    t.end_fill();
 
     // Set animation speed
     t.set_speed(1000);

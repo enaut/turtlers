@@ -32,6 +32,7 @@ pub mod execution;
 pub mod general;
 pub mod shapes;
 pub mod state;
+pub mod tessellation;
 pub mod tweening;
 
 // Re-export commonly used types
@@ -91,7 +92,8 @@ impl TurtleApp {
         self.handle_mouse_zoom();
 
         if let Some(ref mut controller) = self.tween_controller {
-            let completed_commands = controller.update(&mut self.world.turtle);
+            let completed_commands =
+                controller.update(&mut self.world.turtle, &mut self.world.commands);
 
             // Process all completed commands (multiple in instant mode, 0-1 in animated mode)
             for (completed_cmd, start_state, end_state) in completed_commands {

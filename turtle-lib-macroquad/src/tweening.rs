@@ -3,7 +3,8 @@
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::{CommandQueue, TurtleCommand};
 use crate::general::AnimationSpeed;
-use crate::state::TurtleState;
+use crate::state::{DrawCommand, TurtleState};
+use crate::tessellation;
 use macroquad::prelude::*;
 use tween::{CubicInOut, TweenValue, Tweener};
 
@@ -75,10 +76,12 @@ impl TweenController {
     }
 
     /// Update the tween, returns Vec of (command, start_state, end_state) for all completed commands this frame
+    /// Also takes commands vec to handle side effects like fill operations
     /// Each command has its own start_state and end_state pair
     pub fn update(
         &mut self,
         state: &mut TurtleState,
+        commands: &mut Vec<crate::state::DrawCommand>,
     ) -> Vec<(TurtleCommand, TurtleState, TurtleState)> {
         // In instant mode, execute commands up to the draw calls per frame limit
         if let AnimationSpeed::Instant(max_draw_calls) = self.speed {
@@ -105,15 +108,89 @@ impl TweenController {
                     continue;
                 }
 
+                // For commands with side effects (fill operations), handle specially
+                match &command {
+                    TurtleCommand::BeginFill => {
+                        let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
+                        state.begin_fill(fill_color);
+                        continue;
+                    }
+                    TurtleCommand::PenUp => {
+                        state.pen_down = false;
+                        // Close current contour if filling
+                        state.close_fill_contour();
+                        continue;
+                    }
+                    TurtleCommand::PenDown => {
+                        state.pen_down = true;
+                        // Start new contour if filling
+                        state.start_fill_contour();
+                        continue;
+                    }
+                    TurtleCommand::EndFill => {
+                        if let Some(mut fill_state) = state.filling.take() {
+                            // Close final contour if it has vertices
+                            if !fill_state.current_contour.is_empty() {
+                                fill_state.contours.push(fill_state.current_contour);
+                            }
+                            // Create fill command - Lyon will handle EvenOdd automatically
+                            if !fill_state.contours.is_empty() {
+                                if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                                    &fill_state.contours,
+                                    fill_state.fill_color,
+                                ) {
+                                    commands.push(DrawCommand::Mesh(mesh_data));
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                    _ => {}
+                }
+
                 // Execute command immediately
                 let target_state = self.calculate_target_state(state, &command);
                 *state = target_state.clone();
+
+                // Record vertices after position update if filling
+                match &command {
+                    TurtleCommand::Circle {
+                        radius,
+                        angle,
+                        steps,
+                        direction,
+                    } => {
+                        // For circles, record multiple vertices along the arc
+                        if state.filling.is_some() {
+                            use crate::circle_geometry::CircleGeometry;
+                            let geom = CircleGeometry::new(
+                                start_state.position,
+                                start_state.heading,
+                                *radius,
+                                *direction,
+                            );
+                            state.record_fill_vertices_for_arc(
+                                geom.center,
+                                *radius,
+                                geom.start_angle_from_center,
+                                angle.to_radians(),
+                                *direction,
+                                *steps as u32,
+                            );
+                        }
+                    }
+                    TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+                        state.record_fill_vertex();
+                    }
+                    _ => {}
+                }
 
                 // Capture end state AFTER executing this command
                 let end_state = state.clone();
 
                 // Collect drawable commands with their individual start and end states
-                if Self::command_creates_drawing(&command) {
+                // Only create line drawing if pen is down
+                if Self::command_creates_drawing(&command) && start_state.pen_down {
                     completed_commands.push((command, start_state, end_state));
                     draw_call_count += 1;
 
@@ -197,13 +274,92 @@ impl TweenController {
                 *state = tween.target_state.clone();
                 let end_state = state.clone();
 
-                // Return the completed command and start/end states to add draw commands
+                // Return the completed command and start/end states
                 let completed_command = tween.command.clone();
                 self.current_tween = None;
 
-                // Only return command if it creates drawable elements
-                if Self::command_creates_drawing(&completed_command) {
-                    return vec![(completed_command, start_state, end_state)];
+                // Handle fill commands that have side effects
+                match &completed_command {
+                    TurtleCommand::BeginFill => {
+                        let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
+                        state.begin_fill(fill_color);
+                        // Don't return, continue to next command
+                        return self.update(state, commands);
+                    }
+                    TurtleCommand::EndFill => {
+                        if let Some(mut fill_state) = state.filling.take() {
+                            // Close final contour if it has vertices
+                            if !fill_state.current_contour.is_empty() {
+                                fill_state.contours.push(fill_state.current_contour);
+                            }
+                            // Create fill command - Lyon will handle EvenOdd automatically
+                            if !fill_state.contours.is_empty() {
+                                if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                                    &fill_state.contours,
+                                    fill_state.fill_color,
+                                ) {
+                                    commands.push(DrawCommand::Mesh(mesh_data));
+                                }
+                            }
+                        }
+                        // Don't return, continue to next command
+                        return self.update(state, commands);
+                    }
+                    TurtleCommand::Circle {
+                        radius,
+                        angle,
+                        steps,
+                        direction,
+                    } => {
+                        // For circles, record multiple vertices along the arc
+                        if state.filling.is_some() {
+                            use crate::circle_geometry::CircleGeometry;
+                            let geom = CircleGeometry::new(
+                                start_state.position,
+                                start_state.heading,
+                                *radius,
+                                *direction,
+                            );
+                            state.record_fill_vertices_for_arc(
+                                geom.center,
+                                *radius,
+                                geom.start_angle_from_center,
+                                angle.to_radians(),
+                                *direction,
+                                *steps as u32,
+                            );
+                        }
+
+                        if Self::command_creates_drawing(&completed_command) && start_state.pen_down
+                        {
+                            return vec![(completed_command, start_state, end_state)];
+                        } else {
+                            // Movement but no drawing (pen up) - continue
+                            return self.update(state, commands);
+                        }
+                    }
+                    TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+                        // Movement commands: record vertex if filling
+                        state.record_fill_vertex();
+
+                        if Self::command_creates_drawing(&completed_command) && start_state.pen_down
+                        {
+                            return vec![(completed_command, start_state, end_state)];
+                        } else {
+                            // Movement but no drawing (pen up) - continue
+                            return self.update(state, commands);
+                        }
+                    }
+                    _ if Self::command_creates_drawing(&completed_command)
+                        && start_state.pen_down =>
+                    {
+                        // Return drawable commands
+                        return vec![(completed_command, start_state, end_state)];
+                    }
+                    _ => {
+                        // Non-drawable, non-fill commands - continue to next
+                        return self.update(state, commands);
+                    }
                 }
             }
 
@@ -214,16 +370,52 @@ impl TweenController {
         if let Some(command) = self.queue.next() {
             let command_clone = command.clone();
 
-            // Handle SetSpeed command specially
-            if let TurtleCommand::SetSpeed(new_speed) = &command_clone {
-                state.set_speed(*new_speed);
-                self.speed = *new_speed;
-                // If switched to instant mode, process commands immediately
-                if matches!(self.speed, AnimationSpeed::Instant(_)) {
-                    return self.update(state); // Recursively process in instant mode
+            // Handle commands that should execute immediately (no animation)
+            match &command_clone {
+                TurtleCommand::SetSpeed(new_speed) => {
+                    state.set_speed(*new_speed);
+                    self.speed = *new_speed;
+                    // If switched to instant mode, process commands immediately
+                    if matches!(self.speed, AnimationSpeed::Instant(_)) {
+                        return self.update(state, commands); // Recursively process in instant mode
+                    }
+                    // For animated mode speed changes, continue to next command
+                    return self.update(state, commands);
                 }
-                // For animated mode speed changes, continue to next command
-                return self.update(state);
+                TurtleCommand::PenUp => {
+                    state.pen_down = false;
+                    state.close_fill_contour();
+                    return self.update(state, commands);
+                }
+                TurtleCommand::PenDown => {
+                    state.pen_down = true;
+                    state.start_fill_contour();
+                    return self.update(state, commands);
+                }
+                TurtleCommand::BeginFill => {
+                    let fill_color = state.fill_color.unwrap_or(macroquad::prelude::BLACK);
+                    state.begin_fill(fill_color);
+                    return self.update(state, commands);
+                }
+                TurtleCommand::EndFill => {
+                    if let Some(mut fill_state) = state.filling.take() {
+                        // Close final contour if it has vertices
+                        if !fill_state.current_contour.is_empty() {
+                            fill_state.contours.push(fill_state.current_contour);
+                        }
+                        // Create fill command - Lyon will handle EvenOdd automatically
+                        if !fill_state.contours.is_empty() {
+                            if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                                &fill_state.contours,
+                                fill_state.fill_color,
+                            ) {
+                                commands.push(DrawCommand::Mesh(mesh_data));
+                            }
+                        }
+                    }
+                    return self.update(state, commands);
+                }
+                _ => {}
             }
 
             let speed = state.speed; // Extract speed before borrowing self
@@ -374,6 +566,10 @@ impl TweenController {
             }
             TurtleCommand::SetFillColor(color) => {
                 target.fill_color = *color;
+            }
+            TurtleCommand::BeginFill | TurtleCommand::EndFill => {
+                // Fill commands don't change turtle state for tweening purposes
+                // They're handled directly in execution
             }
         }
 

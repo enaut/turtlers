@@ -1,11 +1,12 @@
-//! Rendering logic using Macroquad
+//! Rendering logic using Macroquad and Lyon tessellation
 
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::state::{DrawCommand, TurtleState, TurtleWorld};
+use crate::tessellation;
 use macroquad::prelude::*;
 
 // Import the easing function from the tween crate
-// To change the easing, change both this import and the usage in the draw_tween_arc_* functions below
+// To change the easing, change both this import and the usage in the draw_tween_arc function below
 // Available options: Linear, SineInOut, QuadInOut, CubicInOut, QuartInOut, QuintInOut,
 //                    ExpoInOut, CircInOut, BackInOut, ElasticInOut, BounceInOut, etc.
 // See https://easings.net/ for visual demonstrations
@@ -26,43 +27,8 @@ pub fn render_world(world: &TurtleWorld) {
     // Draw all accumulated commands
     for cmd in &world.commands {
         match cmd {
-            DrawCommand::Line {
-                start,
-                end,
-                color,
-                width,
-            } => {
-                draw_line(start.x, start.y, end.x, end.y, *width, *color);
-            }
-            DrawCommand::Circle {
-                center,
-                radius,
-                color,
-                filled,
-            } => {
-                if *filled {
-                    draw_circle(center.x, center.y, *radius, *color);
-                } else {
-                    draw_circle_lines(center.x, center.y, *radius, 2.0, *color);
-                }
-            }
-            DrawCommand::Arc {
-                center,
-                radius,
-                rotation,
-                arc,
-                color,
-                width,
-                sides,
-            } => {
-                draw_arc(
-                    center.x, center.y, *sides, *radius, *rotation, *width, *arc, *color,
-                );
-            }
-            DrawCommand::FilledPolygon { vertices, color } => {
-                if vertices.len() >= 3 {
-                    draw_filled_polygon(vertices, *color);
-                }
+            DrawCommand::Mesh(mesh_data) => {
+                draw_mesh(&mesh_data.to_mesh());
             }
         }
     }
@@ -99,43 +65,8 @@ pub(crate) fn render_world_with_tween(
     // Draw all accumulated commands
     for cmd in &world.commands {
         match cmd {
-            DrawCommand::Line {
-                start,
-                end,
-                color,
-                width,
-            } => {
-                draw_line(start.x, start.y, end.x, end.y, *width, *color);
-            }
-            DrawCommand::Circle {
-                center,
-                radius,
-                color,
-                filled,
-            } => {
-                if *filled {
-                    draw_circle(center.x, center.y, *radius, *color);
-                } else {
-                    draw_circle_lines(center.x, center.y, *radius, 2.0, *color);
-                }
-            }
-            DrawCommand::Arc {
-                center,
-                radius,
-                rotation,
-                arc,
-                color,
-                width,
-                sides,
-            } => {
-                draw_arc(
-                    center.x, center.y, *sides, *radius, *rotation, *width, *arc, *color,
-                );
-            }
-            DrawCommand::FilledPolygon { vertices, color } => {
-                if vertices.len() >= 3 {
-                    draw_filled_polygon(vertices, *color);
-                }
+            DrawCommand::Mesh(mesh_data) => {
+                draw_mesh(&mesh_data.to_mesh());
             }
         }
     }
@@ -172,6 +103,137 @@ pub(crate) fn render_world_with_tween(
                     );
                 }
                 _ => {}
+            }
+        }
+    }
+
+    // Draw live fill preview if currently filling (always show, not just during tweens)
+    if let Some(ref fill_state) = world.turtle.filling {
+        // Build all contours: completed contours + current contour with animation
+        let mut all_contours: Vec<Vec<Vec2>> = Vec::new();
+
+        // Add all completed contours
+        for completed_contour in &fill_state.contours {
+            let contour_vec2: Vec<Vec2> = completed_contour
+                .iter()
+                .map(|c| Vec2::new(c.x, c.y))
+                .collect();
+            all_contours.push(contour_vec2);
+        }
+
+        // Build current contour with animation
+        let mut current_preview: Vec<Vec2> = fill_state
+            .current_contour
+            .iter()
+            .map(|c| Vec2::new(c.x, c.y))
+            .collect();
+
+        // If we have an active tween, add progressive vertices
+        if let Some(tween) = active_tween {
+            // If we're animating a circle command with pen down, add arc vertices
+            if tween.start_state.pen_down {
+                if let crate::commands::TurtleCommand::Circle {
+                    radius,
+                    angle,
+                    steps,
+                    direction,
+                } = &tween.command
+                {
+                    // Calculate partial arc vertices based on current progress
+                    use crate::circle_geometry::CircleGeometry;
+                    let geom = CircleGeometry::new(
+                        tween.start_state.position,
+                        tween.start_state.heading,
+                        *radius,
+                        *direction,
+                    );
+
+                    // Calculate progress
+                    let elapsed = (get_time() - tween.start_time) as f32;
+                    let progress = (elapsed / tween.duration as f32).min(1.0);
+                    let eased_progress = CubicInOut.tween(1.0, progress);
+
+                    // Generate arc vertices for the partial arc
+                    let num_samples = (*steps as usize).max(1);
+                    let samples_to_draw = ((num_samples as f32 * eased_progress) as usize).max(1);
+
+                    for i in 1..=samples_to_draw {
+                        let sample_progress = i as f32 / num_samples as f32;
+                        let current_angle = match direction {
+                            crate::circle_geometry::CircleDirection::Left => {
+                                geom.start_angle_from_center - angle.to_radians() * sample_progress
+                            }
+                            crate::circle_geometry::CircleDirection::Right => {
+                                geom.start_angle_from_center + angle.to_radians() * sample_progress
+                            }
+                        };
+
+                        let vertex = Vec2::new(
+                            geom.center.x + radius * current_angle.cos(),
+                            geom.center.y + radius * current_angle.sin(),
+                        );
+                        current_preview.push(vertex);
+                    }
+                } else if matches!(
+                    &tween.command,
+                    crate::commands::TurtleCommand::Move(_)
+                        | crate::commands::TurtleCommand::Goto(_)
+                ) {
+                    // For Move/Goto commands, just add the current position
+                    current_preview
+                        .push(Vec2::new(world.turtle.position.x, world.turtle.position.y));
+                }
+            } else if matches!(
+                &tween.command,
+                crate::commands::TurtleCommand::Move(_) | crate::commands::TurtleCommand::Goto(_)
+            ) {
+                // For Move/Goto with pen up during filling, still add current position for preview
+                current_preview.push(Vec2::new(world.turtle.position.x, world.turtle.position.y));
+            }
+
+            // Add current turtle position if not already included
+            if let Some(last) = current_preview.last() {
+                let current_pos = world.turtle.position;
+                // Use a larger threshold to reduce flickering from tiny movements
+                if (last.x - current_pos.x).abs() > 0.1 || (last.y - current_pos.y).abs() > 0.1 {
+                    current_preview.push(Vec2::new(current_pos.x, current_pos.y));
+                }
+            } else if !current_preview.is_empty() {
+                current_preview.push(Vec2::new(world.turtle.position.x, world.turtle.position.y));
+            }
+        } else {
+            // No active tween - just show current state
+            if !current_preview.is_empty() {
+                if let Some(last) = current_preview.last() {
+                    let current_pos = world.turtle.position;
+                    if (last.x - current_pos.x).abs() > 0.1 || (last.y - current_pos.y).abs() > 0.1
+                    {
+                        current_preview.push(Vec2::new(current_pos.x, current_pos.y));
+                    }
+                }
+            }
+        }
+
+        // Add current contour to all contours if it has enough vertices
+        if current_preview.len() >= 3 {
+            all_contours.push(current_preview);
+        }
+
+        // Tessellate and draw all contours together using multi-contour tessellation
+        if !all_contours.is_empty() {
+            match crate::tessellation::tessellate_multi_contour(
+                &all_contours,
+                fill_state.fill_color,
+            ) {
+                Ok(mesh_data) => {
+                    draw_mesh(&mesh_data.to_mesh());
+                }
+                Err(e) => {
+                    eprintln!(
+                        "#### Lyon multi-contour tessellation error for fill preview: {:?}",
+                        e
+                    );
+                }
             }
         }
     }
@@ -237,14 +299,32 @@ pub fn draw_turtle(turtle: &TurtleState) {
     let rotated_vertices = turtle.shape.rotated_vertices(turtle.heading);
 
     if turtle.shape.filled {
-        // Draw filled polygon (now supports concave shapes via ear clipping)
+        // Draw filled polygon using Lyon tessellation
         if rotated_vertices.len() >= 3 {
             let absolute_vertices: Vec<Vec2> = rotated_vertices
                 .iter()
                 .map(|v| turtle.position + *v)
                 .collect();
 
-            draw_filled_polygon(&absolute_vertices, Color::new(0.0, 0.5, 1.0, 1.0));
+            // Use Lyon for turtle shape too
+            match tessellation::tessellate_polygon(
+                &absolute_vertices,
+                Color::new(0.0, 0.5, 1.0, 1.0),
+            ) {
+                Ok(mesh_data) => draw_mesh(&mesh_data.to_mesh()),
+                Err(_) => {
+                    // Fallback to simple triangle fan if Lyon fails
+                    let first = absolute_vertices[0];
+                    for i in 1..absolute_vertices.len() - 1 {
+                        draw_triangle(
+                            first,
+                            absolute_vertices[i],
+                            absolute_vertices[i + 1],
+                            Color::new(0.0, 0.5, 1.0, 1.0),
+                        );
+                    }
+                }
+            }
         }
     } else {
         // Draw outline
@@ -254,41 +334,6 @@ pub fn draw_turtle(turtle: &TurtleState) {
                 let p1 = turtle.position + rotated_vertices[i];
                 let p2 = turtle.position + rotated_vertices[next_i];
                 draw_line(p1.x, p1.y, p2.x, p2.y, 2.0, Color::new(0.0, 0.5, 1.0, 1.0));
-            }
-        }
-    }
-}
-
-/// Draw a filled polygon using triangulation
-fn draw_filled_polygon(vertices: &[Vec2], color: Color) {
-    if vertices.len() < 3 {
-        return;
-    }
-
-    // Flatten vertices into the format expected by earcutr: [x0, y0, x1, y1, ...]
-    let flattened: Vec<f64> = vertices
-        .iter()
-        .flat_map(|v| vec![v.x as f64, v.y as f64])
-        .collect();
-
-    // Triangulate using earcutr (no holes, 2 dimensions)
-    match earcutr::earcut(&flattened, &[], 2) {
-        Ok(indices) => {
-            // Draw each triangle
-            for triangle in indices.chunks(3) {
-                if triangle.len() == 3 {
-                    let v0 = vertices[triangle[0]];
-                    let v1 = vertices[triangle[1]];
-                    let v2 = vertices[triangle[2]];
-                    draw_triangle(v0, v1, v2, color);
-                }
-            }
-        }
-        Err(_) => {
-            // Fallback: if triangulation fails, try simple fan triangulation
-            let first = vertices[0];
-            for i in 1..vertices.len() - 1 {
-                draw_triangle(first, vertices[i], vertices[i + 1], color);
             }
         }
     }

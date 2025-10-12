@@ -38,6 +38,10 @@ pub enum TurtleCommand {
     // Visibility
     ShowTurtle,
     HideTurtle,
+
+    // Fill operations
+    BeginFill,
+    EndFill,
 }
 
 /// Queue of turtle commands with execution state

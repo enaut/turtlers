@@ -3,6 +3,7 @@
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::TurtleCommand;
 use crate::state::{DrawCommand, TurtleState, TurtleWorld};
+use crate::tessellation;
 use macroquad::prelude::*;
 
 #[cfg(test)]
@@ -17,20 +18,19 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             let dy = distance * state.heading.sin();
             state.position = vec2(state.position.x + dx, state.position.y + dy);
 
+            // Record vertex for fill if filling
+            state.record_fill_vertex();
+
             if state.pen_down {
-                world.add_command(DrawCommand::Line {
-                    start,
-                    end: state.position,
-                    color: state.color,
-                    width: state.pen_width,
-                });
-                // Add circle at end point for smooth line joins
-                world.add_command(DrawCommand::Circle {
-                    center: state.position,
-                    radius: state.pen_width / 2.0,
-                    color: state.color,
-                    filled: true,
-                });
+                // Draw line segment with round caps (caps handled by tessellate_stroke)
+                if let Ok(mesh_data) = tessellation::tessellate_stroke(
+                    &[start, state.position],
+                    state.color,
+                    state.pen_width,
+                    false, // not closed
+                ) {
+                    world.add_command(DrawCommand::Mesh(mesh_data));
+                }
             }
         }
 
@@ -50,15 +50,18 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             if state.pen_down {
                 let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
 
-                world.add_command(DrawCommand::Arc {
-                    center: geom.center,
-                    radius: *radius - state.pen_width, // Adjust radius for pen width to keep arc inside
-                    rotation: rotation_degrees,
-                    arc: arc_degrees,
-                    color: state.color,
-                    width: state.pen_width,
-                    sides: *steps as u8,
-                });
+                // Use Lyon to tessellate the arc
+                if let Ok(mesh_data) = tessellation::tessellate_arc(
+                    geom.center,
+                    *radius,
+                    rotation_degrees,
+                    arc_degrees,
+                    state.color,
+                    state.pen_width,
+                    *steps as u8,
+                ) {
+                    world.add_command(DrawCommand::Mesh(mesh_data));
+                }
             }
 
             // Update turtle position and heading
@@ -67,14 +70,37 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                 CircleDirection::Left => start_heading - angle.to_radians(),
                 CircleDirection::Right => start_heading + angle.to_radians(),
             };
+
+            // Record vertices along arc for fill if filling
+            state.record_fill_vertices_for_arc(
+                geom.center,
+                *radius,
+                geom.start_angle_from_center,
+                angle.to_radians(),
+                *direction,
+                *steps as u32,
+            );
         }
 
         TurtleCommand::PenUp => {
             state.pen_down = false;
+            // Close current contour if filling
+            if state.filling.is_some() {
+                eprintln!("PenUp: Closing current contour");
+            }
+            state.close_fill_contour();
         }
 
         TurtleCommand::PenDown => {
             state.pen_down = true;
+            // Start new contour if filling
+            if state.filling.is_some() {
+                eprintln!(
+                    "PenDown: Starting new contour at position ({}, {})",
+                    state.position.x, state.position.y
+                );
+            }
+            state.start_fill_contour();
         }
 
         TurtleCommand::SetColor(color) => {
@@ -101,20 +127,19 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             let start = state.position;
             state.position = *coord;
 
+            // Record vertex for fill if filling
+            state.record_fill_vertex();
+
             if state.pen_down {
-                world.add_command(DrawCommand::Line {
-                    start,
-                    end: state.position,
-                    color: state.color,
-                    width: state.pen_width,
-                });
-                // Add circle at end point for smooth line joins
-                world.add_command(DrawCommand::Circle {
-                    center: state.position,
-                    radius: state.pen_width / 2.0,
-                    color: state.color,
-                    filled: true,
-                });
+                // Draw line segment with round caps
+                if let Ok(mesh_data) = tessellation::tessellate_stroke(
+                    &[start, state.position],
+                    state.color,
+                    state.pen_width,
+                    false, // not closed
+                ) {
+                    world.add_command(DrawCommand::Mesh(mesh_data));
+                }
             }
         }
 
@@ -129,6 +154,53 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
         TurtleCommand::HideTurtle => {
             state.visible = false;
         }
+
+        TurtleCommand::BeginFill => {
+            if state.filling.is_some() {
+                eprintln!("Warning: begin_fill() called while already filling");
+            }
+
+            let fill_color = state.fill_color.unwrap_or_else(|| {
+                eprintln!("Warning: No fill_color set, using black");
+                BLACK
+            });
+
+            state.begin_fill(fill_color);
+        }
+
+        TurtleCommand::EndFill => {
+            if let Some(mut fill_state) = state.filling.take() {
+                // Close final contour if it has vertices
+                if !fill_state.current_contour.is_empty() {
+                    fill_state.contours.push(fill_state.current_contour);
+                }
+
+                // Debug output
+                eprintln!("=== EndFill Debug ===");
+                eprintln!("Total contours: {}", fill_state.contours.len());
+                for (i, contour) in fill_state.contours.iter().enumerate() {
+                    eprintln!("  Contour {}: {} vertices", i, contour.len());
+                }
+
+                // Create fill command - Lyon will handle EvenOdd automatically with multiple contours
+                if !fill_state.contours.is_empty() {
+                    if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                        &fill_state.contours,
+                        fill_state.fill_color,
+                    ) {
+                        eprintln!(
+                            "Successfully tessellated {} contours",
+                            fill_state.contours.len()
+                        );
+                        world.add_command(DrawCommand::Mesh(mesh_data));
+                    } else {
+                        eprintln!("ERROR: Failed to tessellate contours!");
+                    }
+                }
+            } else {
+                eprintln!("Warning: end_fill() called without begin_fill()");
+            }
+        }
     }
 }
 
@@ -142,19 +214,15 @@ pub fn add_draw_for_completed_tween(
     match command {
         TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
             if start_state.pen_down {
-                world.add_command(DrawCommand::Line {
-                    start: start_state.position,
-                    end: end_state.position,
-                    color: start_state.color,
-                    width: start_state.pen_width,
-                });
-                // Add circle at end point for smooth line joins
-                world.add_command(DrawCommand::Circle {
-                    center: end_state.position,
-                    radius: start_state.pen_width / 2.0,
-                    color: start_state.color,
-                    filled: true,
-                });
+                // Draw line segment with round caps
+                if let Ok(mesh_data) = tessellation::tessellate_stroke(
+                    &[start_state.position, end_state.position],
+                    start_state.color,
+                    start_state.pen_width,
+                    false, // not closed
+                ) {
+                    world.add_command(DrawCommand::Mesh(mesh_data));
+                }
             }
         }
         TurtleCommand::Circle {
@@ -172,30 +240,22 @@ pub fn add_draw_for_completed_tween(
                 );
                 let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
 
-                world.add_command(DrawCommand::Arc {
-                    center: geom.center,
-                    radius: *radius - start_state.pen_width / 2.0,
-                    rotation: rotation_degrees,
-                    arc: arc_degrees,
-                    color: start_state.color,
-                    width: start_state.pen_width,
-                    sides: *steps as u8,
-                });
-
-                // Add endpoint circles for smooth joins
-                world.add_command(DrawCommand::Circle {
-                    center: start_state.position,
-                    radius: start_state.pen_width / 2.0,
-                    color: start_state.color,
-                    filled: true,
-                });
-                world.add_command(DrawCommand::Circle {
-                    center: end_state.position,
-                    radius: start_state.pen_width / 2.0,
-                    color: start_state.color,
-                    filled: true,
-                });
+                // Use Lyon to tessellate the arc
+                if let Ok(mesh_data) = tessellation::tessellate_arc(
+                    geom.center,
+                    *radius,
+                    rotation_degrees,
+                    arc_degrees,
+                    start_state.color,
+                    start_state.pen_width,
+                    *steps as u8,
+                ) {
+                    world.add_command(DrawCommand::Mesh(mesh_data));
+                }
             }
+        }
+        TurtleCommand::BeginFill | TurtleCommand::EndFill => {
+            // No immediate drawing for fill commands, handled in execute_command
         }
         _ => {
             // Other commands don't create drawing
@@ -223,6 +283,7 @@ mod tests {
             speed: AnimationSpeed::Animated(100.0),
             visible: true,
             shape: TurtleShape::turtle(),
+            filling: None,
         };
 
         // We'll use a dummy world but won't actually call drawing commands
