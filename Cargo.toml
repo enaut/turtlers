@@ -9,23 +9,6 @@ members = [
 ]
 
 [workspace.dependencies]
-# Pin Bevy across the workspace
-bevy = { version = "0.17.1" }
-
-# Bevy ecosystem crates compatible with Bevy 0.17
-# Lyon: main branch targets latest Bevy (0.17 at time of writing)
-bevy_prototype_lyon = { git = "https://github.com/pindash-io/bevy_prototype_lyon.git", branch = "bevy-0.17" }
-
-# Tweening: pin to a recent commit on main that states compatibility with latest Bevy
-# If this still pulls Bevy 0.16, we'll revisit and temporarily gate tweening.
-bevy_tweening = { git = "https://github.com/djeedai/bevy_tweening.git", rev = "8b3cad18a090078d9055d77a632be44e701aecc7" }
-
-# Inspector: main branch adds support for newer Bevy, use git until 0.17 release is published
-bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui.git" }
-
-# Shared utility crates
-num-traits = "0.2"
-rand = "0.8"
 
 
 # Enable a small amount of optimization in debug mode
