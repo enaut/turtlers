@@ -1,12 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "turtle-lib",
-    "turtle-example",
-    "turtle-lib-macroquad",
-    "turtle-lib-macroquad-macros",
-]
+members = ["turtle-lib", "turtle-lib-macros"]
 
 [workspace.dependencies]
 

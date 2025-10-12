@@ -2,19 +2,16 @@
 
 ## Project Overview
 
-Rust workspace with turtle graphics implementations. **Primary focus: `turtle-lib-macroquad`** - lightweight library using Macroquad + Lyon for GPU-accelerated rendering.
+Rust workspace with turtle graphics implementations. **Primary focus: `turtle-lib`** - lightweight library using Macroquad + Lyon for GPU-accelerated rendering.
 
 ### Workspace Structure
 ```
-turtle/
-├── turtle-lib-macroquad/        # MAIN LIBRARY - Macroquad + Lyon (focus here)
-├── turtle-lib-macroquad-macros/ # Proc macro for turtle_main
-├── turtle-lib/                  # Legacy Bevy 0.17.1 implementation (maintenance only)
-├── turtle-example/              # Legacy examples
-└── turtle-ui/                   # UI components
+turtlers/
+├── turtle-lib/        # MAIN LIBRARY - Macroquad + Lyon (focus here)
+└── turtle-lib-macros/ # Proc macro for turtle_main
 ```
 
-## Architecture (`turtle-lib-macroquad`)
+## Architecture (`turtle-lib`)
 
 ### Core Design Pattern: Command Queue + Tweening
 - **Builder API** (`TurtlePlan`) accumulates commands
@@ -64,20 +61,20 @@ All drawing → Lyon → GPU mesh → Macroquad rendering
 ### Building & Testing
 ```bash
 # Main library
-cargo build --package turtle-lib-macroquad
-cargo test --package turtle-lib-macroquad
-cargo clippy --package turtle-lib-macroquad -- -Wclippy::pedantic \
+cargo build --package turtle-lib
+cargo test --package turtle-lib
+cargo clippy --package turtle-lib -- -Wclippy::pedantic \
   -Aclippy::cast_precision_loss -Aclippy::cast_sign_loss -Aclippy::cast_possible_truncation
 
 # Run examples (15+ examples available)
-cargo run --package turtle-lib-macroquad --example hello_turtle
-cargo run --package turtle-lib-macroquad --example yinyang
-cargo run --package turtle-lib-macroquad --example cheese_macro
+cargo run --package turtle-lib --example hello_turtle
+cargo run --package turtle-lib --example yinyang
+cargo run --package turtle-lib --example cheese_macro
 ```
 
 ### Macro Crate
 ```bash
-cargo build --package turtle-lib-macroquad-macros
+cargo build --package turtle-lib-macros
 ```
 
 ### Code Quality Standards
@@ -91,7 +88,7 @@ cargo build --package turtle-lib-macroquad-macros
 ### 1. The `turtle_main` Macro (PREFERRED for examples)
 Simplest way to create turtle programs:
 ```rust
-use turtle_lib_macroquad::*;
+use turtle_lib::*;
 
 #[turtle_main("Window Title")]
 fn draw(turtle: &mut TurtlePlan) {
@@ -102,7 +99,7 @@ fn draw(turtle: &mut TurtlePlan) {
 Generates: window setup + render loop + quit handling (ESC/Q)
 
 ### 2. Import Convention
-Only need: `use turtle_lib_macroquad::*;`
+Only need: `use turtle_lib::*;`
 - Re-exports: `vec2`, `RED/BLUE/GREEN/etc`, all turtle types
 - No `use macroquad::prelude::*` needed (causes unused warnings)
 
@@ -155,12 +152,12 @@ async fn main() {
 
 ### Adding Example
 - Prefer `turtle_main` macro for simplicity
-- Use only `use turtle_lib_macroquad::*;`
+- Use only `use turtle_lib::*;`
 - Keep examples focused (one concept each)
 - See `examples/hello_turtle.rs` for minimal template
 
 ### Debugging Lyon Issues
-- Enable tracing: `RUST_LOG=turtle_lib_macroquad=debug cargo run`
+- Enable tracing: `RUST_LOG=turtle_lib=debug cargo run`
 - Check `tessellation.rs` for Lyon API usage
 - EvenOdd fill rule: holes must have opposite winding
 
@@ -182,14 +179,13 @@ async fn main() {
 - Don't add `use macroquad::prelude::*` in examples when not required
 - Don't manually triangulate - use Lyon functions
 - Don't add commands for Forward/Backward separately (use Move)
-- Don't modify `turtle-lib` (Bevy) unless specifically needed
 - Don't create summary/comparison docs unless requested
 
 ## Key Documentation Files
 
 - `README.md` - Main API docs
-- `turtle-lib-macroquad/README.md` - Library-specific docs
-- `turtle-lib-macroquad-macros/README.md` - Macro docs
+- `turtle-lib/README.md` - Library-specific docs
+- `turtle-lib-macros/README.md` - Macro docs
 
 ## Response Style
 

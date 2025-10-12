@@ -1,0 +1,16 @@
+[package]
+name = "turtle-lib"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+macroquad = "0.4"
+tween = "2.1.0"
+lyon = "1.0"
+tracing = { version = "0.1", features = ["log"], default-features = false }
+turtle-lib-macros = { path = "../turtle-lib-macros" }
+
+[dev-dependencies]
+# For examples and testing
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

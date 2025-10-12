@@ -22,7 +22,7 @@ A modern turtle graphics library for Rust built on [Macroquad](https://macroquad
 
 ```rust
 use macroquad::prelude::*;
-use turtle_lib_macroquad::*;
+use turtle_lib::*;
 
 #[macroquad::main("Turtle")]
 async fn main() {
@@ -169,19 +169,18 @@ Control verbosity with the `RUST_LOG` environment variable:
 
 ```bash
 # Show debug output
-RUST_LOG=turtle_lib_macroquad=debug cargo run
+RUST_LOG=turtle_lib=debug cargo run
 
 # Very verbose trace output
-RUST_LOG=turtle_lib_macroquad=trace cargo run
+RUST_LOG=turtle_lib=trace cargo run
 ```
 
-**See the complete example**: [`examples/logging_example.rs`](turtle-lib-macroquad/examples/logging_example.rs) demonstrates initialization, log levels, filtering, and example output.
+**See the complete example**: [`examples/logging_example.rs`](turtle-lib/examples/logging_example.rs) demonstrates initialization, log levels, filtering, and example output.
 
 ## Examples
 
 Run examples with:
 ```bash
-# From turtle-lib-macroquad directory
 cargo run --example square
 cargo run --example koch
 cargo run --example shapes
@@ -191,12 +190,7 @@ cargo run --example nikolaus
 
 # Logging example - shows how to enable debug output
 cargo run --example logging_example
-RUST_LOG=turtle_lib_macroquad=debug cargo run --example logging_example
-
-# Lyon proof-of-concept examples
-cargo run --package turtle-lyon-poc --example yinyang --release
-cargo run --package turtle-lyon-poc --example basic_shapes --release
-cargo run --package turtle-lyon-poc --example fill_comparison --release
+RUST_LOG=turtle_lib=debug cargo run --example logging_example
 ```
 
 ### Available Examples
@@ -275,7 +269,7 @@ plan.end_fill();  // Auto-detects holes and fills correctly
 ### Module Structure
 
 ```
-turtle-lib-macroquad/src/
+turtle-lib/src/
 ├── lib.rs          - Public API and TurtleApp
 ├── state.rs        - TurtleState and TurtleWorld
 ├── commands.rs     - TurtleCommand enum (consolidated commands)
@@ -314,13 +308,10 @@ This design eliminates ~250 lines of duplicate code while maintaining the same u
 ## Workspace Structure
 
 ```
-turtle/
-├── turtle-lib-macroquad/    - Main library (Macroquad + Lyon)
-├── turtle-lib/              - Legacy Bevy-based implementation
-└── turtle-example/          - Legacy examples
+turtlers/
+├── turtle-lib/         - Main library (Macroquad + Lyon)
+└── turtle-lib-macros/  - Procedural macros (turtle_main)
 ```
-
-The `turtle-lib-macroquad` package is the current and future focus of development.
 
 ## Building and Running
 
@@ -329,13 +320,10 @@ The `turtle-lib-macroquad` package is the current and future focus of developmen
 cargo check
 
 # Run specific example
-cargo run --package turtle-lib-macroquad --example yinyang
+cargo run --example yinyang
 
 # Build release version
 cargo build --release
-
-# Run Lyon POC examples to see future rendering
-cargo run --package turtle-lyon-poc --example yinyang --release
 ```
 
 ## Development Status
