@@ -3,7 +3,29 @@
 //! This library provides a turtle graphics API for creating drawings and animations
 //! using the Macroquad game framework.
 //!
-//! # Example
+//! # Quick Start with `turtle_main` Macro
+//!
+//! The easiest way to create a turtle program is using the `turtle_main` macro:
+//!
+//! ```no_run
+//! use macroquad::prelude::*;
+//! use turtle_lib_macroquad::*;
+//!
+//! #[turtle_main("My Drawing")]
+//! fn draw(turtle: &mut TurtlePlan) {
+//!     turtle.set_pen_color(RED);
+//!     turtle.forward(100.0);
+//!     turtle.right(90.0);
+//!     turtle.forward(100.0);
+//! }
+//! ```
+//!
+//! The macro automatically handles window setup, rendering loop, and quit handling.
+//!
+//! # Manual Setup Example
+//!
+//! For more control, you can set up the application manually:
+//!
 //! ```no_run
 //! use macroquad::prelude::*;
 //! use turtle_lib_macroquad::*;
@@ -42,6 +64,14 @@ pub use general::{Angle, AnimationSpeed, Color, Coordinate, Length, Precision};
 pub use shapes::{ShapeType, TurtleShape};
 pub use state::{DrawCommand, TurtleState, TurtleWorld};
 pub use tweening::TweenController;
+
+// Re-export the turtle_main macro
+pub use turtle_lib_macroquad_macros::turtle_main;
+
+// Re-export common macroquad types and colors for convenience
+pub use macroquad::prelude::{
+    vec2, BLACK, BLUE, DARKGRAY, GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
+};
 
 use macroquad::prelude::*;
 

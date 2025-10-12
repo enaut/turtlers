@@ -1,74 +1,57 @@
 //! Nikolaus example - draws a house-like figure
 
-use macroquad::prelude::*;
 use turtle_lib_macroquad::*;
 
-fn nikolausquadrat(plan: &mut TurtlePlan, groesse: f32) {
-    plan.forward(groesse);
-    plan.left(90.0);
-    plan.forward(groesse);
-    plan.left(90.0);
-    plan.forward(groesse);
-    plan.left(90.0);
-    plan.forward(groesse);
-    plan.left(90.0);
+fn nikolausquadrat(turtle: &mut TurtlePlan, groesse: f32) {
+    turtle.forward(groesse);
+    turtle.left(90.0);
+    turtle.forward(groesse);
+    turtle.left(90.0);
+    turtle.forward(groesse);
+    turtle.left(90.0);
+    turtle.forward(groesse);
+    turtle.left(90.0);
 }
 
-fn nikolausdiag(plan: &mut TurtlePlan, groesse: f32) {
+fn nikolausdiag(turtle: &mut TurtlePlan, groesse: f32) {
     let quadrat = groesse * groesse;
     let diag = (quadrat + quadrat).sqrt();
 
-    plan.left(45.0);
-    plan.forward(diag);
-    plan.left(45.0);
-    nikolausdach2(plan, groesse);
-    plan.left(45.0);
-    plan.forward(diag);
-    plan.left(45.0);
+    turtle.left(45.0);
+    turtle.forward(diag);
+    turtle.left(45.0);
+    nikolausdach2(turtle, groesse);
+    turtle.left(45.0);
+    turtle.forward(diag);
+    turtle.left(45.0);
 }
 
-fn nikolausdach2(plan: &mut TurtlePlan, groesse: f32) {
+fn nikolausdach2(turtle: &mut TurtlePlan, groesse: f32) {
     let quadrat = groesse * groesse;
     let diag = (quadrat + quadrat).sqrt();
-    plan.left(45.0);
-    plan.forward(diag / 2.0);
-    plan.left(90.0);
-    plan.forward(diag / 2.0);
-    plan.left(45.0);
+    turtle.left(45.0);
+    turtle.forward(diag / 2.0);
+    turtle.left(90.0);
+    turtle.forward(diag / 2.0);
+    turtle.left(45.0);
 }
 
-fn nikolaus(plan: &mut TurtlePlan, groesse: f32) {
-    nikolausquadrat(plan, groesse);
-    nikolausdiag(plan, groesse);
+fn nikolaus(turtle: &mut TurtlePlan, groesse: f32) {
+    nikolausquadrat(turtle, groesse);
+    nikolausdiag(turtle, groesse);
 }
 
-#[macroquad::main("Nikolaus")]
-async fn main() {
-    // Create a turtle plan
-    let mut plan = create_turtle();
-    plan.shape(ShapeType::Turtle);
+#[turtle_main("Nikolaus")]
+fn draw(turtle: &mut TurtlePlan) {
+    turtle.shape(ShapeType::Turtle);
 
     // Position the turtle (pen up, move, pen down)
-    plan.pen_up();
-    plan.backward(80.0);
-    plan.left(90.0);
-    plan.forward(50.0);
-    plan.right(90.0);
-    plan.pen_down();
+    turtle.pen_up();
+    turtle.backward(80.0);
+    turtle.left(90.0);
+    turtle.forward(50.0);
+    turtle.right(90.0);
+    turtle.pen_down();
 
-    nikolaus(&mut plan, 100.0);
-
-    // Create turtle app with animation
-    let mut app = TurtleApp::new().with_commands(plan.build());
-
-    // Main loop
-    loop {
-        clear_background(WHITE);
-
-        // Update and render
-        app.update();
-        app.render();
-
-        next_frame().await
-    }
+    nikolaus(turtle, 100.0);
 }

@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
 
-members = ["turtle-lib", "turtle-example", "turtle-lib-macroquad"]
+members = [
+    "turtle-lib",
+    "turtle-example",
+    "turtle-lib-macroquad",
+    "turtle-lib-macroquad-macros",
+]
 
 [workspace.dependencies]
 # Pin Bevy across the workspace

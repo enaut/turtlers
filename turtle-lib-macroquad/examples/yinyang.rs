@@ -1,47 +1,30 @@
-//! Simple square example demonstrating basic turtle graphics
+//! Yin-Yang symbol example demonstrating multi-contour fills
 
-use macroquad::prelude::*;
 use turtle_lib_macroquad::*;
 
-#[macroquad::main("Turtle Square")]
-async fn main() {
-    // Create a turtle plan
-    let mut t = create_turtle();
-    t.set_speed(900);
+#[turtle_main("Yin-Yang")]
+fn draw(turtle: &mut TurtlePlan) {
+    turtle.set_speed(900);
 
-    t.circle_left(90.0, 180.0, 36);
-    t.begin_fill();
-    t.circle_left(90.0, 180.0, 36);
-    t.circle_left(45.0, 180.0, 26);
-    t.circle_right(45.0, 180.0, 26);
-    t.pen_up();
-    t.right(90.0);
-    t.forward(37.0);
-    t.left(90.0);
-    t.pen_down();
-    t.circle_right(8.0, 360.0, 12);
-    t.pen_up();
-    t.right(90.0);
-    t.forward(90.0);
-    t.left(90.0);
-    t.pen_down();
-    t.circle_right(8.0, 360.0, 12);
-    t.end_fill();
+    turtle.circle_left(90.0, 180.0, 36);
+    turtle.begin_fill();
+    turtle.circle_left(90.0, 180.0, 36);
+    turtle.circle_left(45.0, 180.0, 26);
+    turtle.circle_right(45.0, 180.0, 26);
+    turtle.pen_up();
+    turtle.right(90.0);
+    turtle.forward(37.0);
+    turtle.left(90.0);
+    turtle.pen_down();
+    turtle.circle_right(8.0, 360.0, 12);
+    turtle.pen_up();
+    turtle.right(90.0);
+    turtle.forward(90.0);
+    turtle.left(90.0);
+    turtle.pen_down();
+    turtle.circle_right(8.0, 360.0, 12);
+    turtle.end_fill();
 
     // Set animation speed
-    t.set_speed(1000);
-
-    // Create turtle app with animation (speed = 100 pixels/sec)
-    let mut app = TurtleApp::new().with_commands(t.build());
-
-    // Main loop
-    loop {
-        clear_background(WHITE);
-
-        // Update and render
-        app.update();
-        app.render();
-
-        next_frame().await
-    }
+    turtle.set_speed(1000);
 }

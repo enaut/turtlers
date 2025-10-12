@@ -1,12 +1,9 @@
 //! Example matching the original requirements exactly
 
-use macroquad::prelude::*;
 use turtle_lib_macroquad::*;
 
-#[macroquad::main("Fill Example - Original Requirements")]
-async fn main() {
-    let mut turtle = create_turtle();
-
+#[turtle_main("Fill Example - Original Requirements")]
+fn draw(turtle: &mut TurtlePlan) {
     turtle.right(90.0);
     turtle.set_pen_width(3.0);
     turtle.set_speed(900);
@@ -37,30 +34,4 @@ async fn main() {
 
     // Set speed for animation
     turtle.set_speed(200);
-
-    let mut app = TurtleApp::new().with_commands(turtle.build());
-
-    loop {
-        clear_background(WHITE);
-        app.update();
-        app.render();
-
-        // Instructions
-        draw_text(
-            "Fill Example - Circle filled with red, square not filled",
-            10.0,
-            20.0,
-            20.0,
-            BLACK,
-        );
-        draw_text(
-            "Mouse: drag to pan, scroll to zoom",
-            10.0,
-            40.0,
-            16.0,
-            DARKGRAY,
-        );
-
-        next_frame().await
-    }
 }

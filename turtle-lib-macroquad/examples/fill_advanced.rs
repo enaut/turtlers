@@ -1,4 +1,6 @@
 //! Advanced fill example with multiple holes and complex shapes
+//!
+//! This example uses manual setup to demonstrate custom window size and UI elements.
 
 use macroquad::{miniquad::window::set_window_size, prelude::*};
 use turtle_lib_macroquad::*;

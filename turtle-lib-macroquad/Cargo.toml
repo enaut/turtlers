@@ -9,6 +9,7 @@ macroquad = "0.4"
 tween = "2.1.0"
 lyon = "1.0"
 tracing = { version = "0.1", features = ["log"], default-features = false }
+turtle-lib-macroquad-macros = { path = "../turtle-lib-macroquad-macros" }
 
 [dev-dependencies]
 # For examples and testing

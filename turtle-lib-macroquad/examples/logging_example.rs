@@ -17,6 +17,8 @@
 //! RUST_LOG=turtle_lib_macroquad::tessellation=debug cargo run --example logging_example
 //! RUST_LOG=turtle_lib_macroquad::execution=debug cargo run --example logging_example
 //! ```
+//!
+//! Note: This example uses manual setup to demonstrate custom initialization logic.
 
 use macroquad::prelude::*;
 use turtle_lib_macroquad::*;
@@ -27,11 +29,10 @@ async fn main() {
     // This will respect the RUST_LOG environment variable
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| {
-                    // Default to showing info-level logs if RUST_LOG is not set
-                    tracing_subscriber::EnvFilter::new("turtle_lib_macroquad=info")
-                }),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                // Default to showing info-level logs if RUST_LOG is not set
+                tracing_subscriber::EnvFilter::new("turtle_lib_macroquad=info")
+            }),
         )
         .with_target(true) // Show which module the log came from
         .with_thread_ids(false)
@@ -40,7 +41,9 @@ async fn main() {
         .init();
 
     tracing::info!("Starting turtle graphics example with logging enabled");
-    tracing::info!("Try running with: RUST_LOG=turtle_lib_macroquad=debug cargo run --example logging_example");
+    tracing::info!(
+        "Try running with: RUST_LOG=turtle_lib_macroquad=debug cargo run --example logging_example"
+    );
 
     // Create a turtle plan with fill operations to see detailed logging
     let mut t = create_turtle();
