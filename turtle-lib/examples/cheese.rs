@@ -71,7 +71,7 @@ async fn main() {
 
     println!("Building and executing turtle plan...");
     // Execute the plan
-    let mut app = TurtleApp::new().with_commands(turtle.build());
+    let mut app = TurtleApp::new().with_commands(0, turtle.build());
 
     loop {
         clear_background(Color::new(0.95, 0.95, 0.98, 1.0));

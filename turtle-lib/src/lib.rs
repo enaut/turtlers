@@ -78,7 +78,8 @@ use macroquad::prelude::*;
 /// Main turtle application struct
 pub struct TurtleApp {
     world: TurtleWorld,
-    tween_controller: Option<TweenController>,
+    /// One tween controller per turtle (indexed by turtle ID)
+    tween_controllers: Vec<TweenController>,
     speed: AnimationSpeed,
     // Mouse panning state
     is_dragging: bool,
@@ -93,7 +94,7 @@ impl TurtleApp {
     pub fn new() -> Self {
         Self {
             world: TurtleWorld::new(),
-            tween_controller: None,
+            tween_controllers: Vec::new(),
             speed: AnimationSpeed::default(),
             is_dragging: false,
             last_mouse_pos: None,
@@ -101,20 +102,57 @@ impl TurtleApp {
         }
     }
 
-    /// Add commands to the turtle
+    /// Add a new turtle and return its ID
+    pub fn add_turtle(&mut self) -> usize {
+        let id = self.world.add_turtle();
+        let speed = self.speed;
+        self.tween_controllers
+            .push(TweenController::new(id, CommandQueue::new(), speed));
+        id
+    }
+
+    /// Add commands to a specific turtle
     ///
     /// Speed is controlled by `SetSpeed` commands in the queue.
     /// Use `set_speed()` on the turtle plan to set animation speed.
     /// Speed >= 999 = instant mode, speed < 999 = animated mode.
     ///
     /// # Arguments
+    /// * `turtle_id` - The ID of the turtle to control
     /// * `queue` - The command queue to execute
     #[must_use]
-    pub fn with_commands(mut self, queue: CommandQueue) -> Self {
-        // The `TweenController` will switch between instant and animated mode
-        // based on `SetSpeed` commands encountered
-        self.tween_controller = Some(TweenController::new(queue, self.speed));
+    pub fn with_commands(mut self, turtle_id: usize, queue: CommandQueue) -> Self {
+        // Ensure we have a controller for this turtle
+        while self.tween_controllers.len() <= turtle_id {
+            let id = self.tween_controllers.len();
+            let speed = self.speed;
+            self.tween_controllers
+                .push(TweenController::new(id, CommandQueue::new(), speed));
+        }
+
+        // Append commands to the controller
+        self.tween_controllers[turtle_id].append_commands(queue);
         self
+    }
+
+    /// Execute a plan immediately on a specific turtle (no animation)
+    pub fn execute_immediate(&mut self, turtle_id: usize, plan: TurtlePlan) {
+        for ref cmd in plan.build() {
+            execution::execute_command_with_id(cmd, turtle_id, &mut self.world);
+        }
+    }
+
+    /// Append commands to a turtle's animation queue
+    pub fn append_to_queue(&mut self, turtle_id: usize, plan: TurtlePlan) {
+        // Ensure we have a controller for this turtle
+        while self.tween_controllers.len() <= turtle_id {
+            let id = self.tween_controllers.len();
+            let speed = AnimationSpeed::default();
+            self.tween_controllers
+                .push(TweenController::new(id, CommandQueue::new(), speed));
+        }
+
+        self.tween_controllers[turtle_id].append_commands(plan.build());
     }
 
     /// Update animation state (call every frame)
@@ -123,18 +161,30 @@ impl TurtleApp {
         self.handle_mouse_panning();
         self.handle_mouse_zoom();
 
-        if let Some(ref mut controller) = self.tween_controller {
-            let completed_commands =
-                controller.update(&mut self.world.turtle, &mut self.world.commands);
+        // Update all active tween controllers
+        // Process each turtle separately to avoid borrow conflicts
+        let turtle_count = self.tween_controllers.len();
+        for turtle_id in 0..turtle_count {
+            // Extract commands temporarily to avoid double mutable borrow
+            let mut commands = std::mem::take(&mut self.world.commands);
 
-            // Process all completed commands (multiple in instant mode, 0-1 in animated mode)
+            let completed_commands = if let Some(turtle) = self.world.get_turtle_mut(turtle_id) {
+                self.tween_controllers[turtle_id].update(turtle, &mut commands)
+            } else {
+                Vec::new()
+            };
+
+            // Put commands back
+            self.world.commands = commands;
+
+            // Process all completed commands
             for (completed_cmd, start_state, end_state) in completed_commands {
-                // Add draw commands for the completed tween
-                execution::add_draw_for_completed_tween(
+                execution::add_draw_for_completed_tween_with_id(
                     &completed_cmd,
                     &start_state,
                     &end_state,
                     &mut self.world,
+                    turtle_id,
                 );
             }
         }
@@ -187,20 +237,21 @@ impl TurtleApp {
 
     /// Render the turtle world (call every frame)
     pub fn render(&self) {
-        // Get active tween if in animated mode
+        // Find the first active tween (turtle_id is now stored in the tween itself)
         let active_tween = self
-            .tween_controller
-            .as_ref()
-            .and_then(|c| c.current_tween());
+            .tween_controllers
+            .iter()
+            .find_map(|controller| controller.current_tween());
+
         drawing::render_world_with_tween(&self.world, active_tween, self.zoom_level);
     }
 
     /// Check if all commands have been executed
     #[must_use]
     pub fn is_complete(&self) -> bool {
-        self.tween_controller
-            .as_ref()
-            .is_none_or(TweenController::is_complete)
+        self.tween_controllers
+            .iter()
+            .all(TweenController::is_complete)
     }
 
     /// Get reference to the world state

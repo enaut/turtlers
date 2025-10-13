@@ -111,7 +111,7 @@ async fn main() {
     // Set animation speed
     t.set_speed(500);
 
-    let mut app = TurtleApp::new().with_commands(t.build());
+    let mut app = TurtleApp::new().with_commands(0, t.build());
 
     let target_fps = 1.0; // 1 frame per second for debugging
     let frame_time = 1.0 / target_fps;

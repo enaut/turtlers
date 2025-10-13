@@ -60,9 +60,9 @@ use syn::{parse_macro_input, ItemFn};
 ///     turtle.forward(100.0);
 ///     turtle.right(90.0);
 ///     turtle.forward(100.0);
-///     
-///     let mut app = TurtleApp::new().with_commands(turtle.build());
-///     
+///
+///     let mut app = TurtleApp::new().with_commands(0, turtle.build());
+///
 ///     loop {
 ///         clear_background(WHITE);
 ///         app.update();
@@ -108,7 +108,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 #fn_name(&mut turtle);
 
                 let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
+                    .with_commands(0, turtle.build());
 
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
@@ -145,7 +145,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 #fn_block
 
                 let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
+                    .with_commands(0, turtle.build());
 
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);

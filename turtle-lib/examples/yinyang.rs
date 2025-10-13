@@ -4,7 +4,7 @@ use turtle_lib::*;
 
 #[turtle_main("Yin-Yang")]
 fn draw(turtle: &mut TurtlePlan) {
-    turtle.set_speed(200);
+    turtle.set_speed(100);
 
     turtle.circle_left(90.0, 180.0, 36);
     turtle.begin_fill();

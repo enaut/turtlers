@@ -302,6 +302,7 @@ pub fn tessellate_arc(
     color: Color,
     stroke_width: f32,
     segments: usize,
+    direction: crate::circle_geometry::CircleDirection,
 ) -> Result<MeshData, Box<dyn std::error::Error>> {
     // Build arc path manually from segments
     let mut builder = Path::builder();
@@ -311,16 +312,24 @@ pub fn tessellate_arc(
     let step = arc_angle / segments as f32;
 
     // Calculate first point
-    let first_angle = start_angle;
     let first_point = point(
-        center.x + radius * first_angle.cos(),
-        center.y + radius * first_angle.sin(),
+        center.x + radius * start_angle.cos(),
+        center.y + radius * start_angle.sin(),
     );
     builder.begin(first_point);
 
-    // Add remaining points
+    // Add remaining points - direction matters!
     for i in 1..=segments {
-        let angle = start_angle + step * i as f32;
+        let angle = match direction {
+            crate::circle_geometry::CircleDirection::Left => {
+                // Counter-clockwise: subtract angle
+                start_angle - step * i as f32
+            }
+            crate::circle_geometry::CircleDirection::Right => {
+                // Clockwise: add angle
+                start_angle + step * i as f32
+            }
+        };
         let pt = point(
             center.x + radius * angle.cos(),
             center.y + radius * angle.sin(),

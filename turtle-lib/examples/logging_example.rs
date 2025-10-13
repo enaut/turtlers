@@ -75,7 +75,7 @@ async fn main() {
     t.set_speed(100); // Slow animation to see the logs in real-time
 
     // Create turtle app
-    let mut app = TurtleApp::new().with_commands(t.build());
+    let mut app = TurtleApp::new().with_commands(0, t.build());
 
     // Main loop
     loop {

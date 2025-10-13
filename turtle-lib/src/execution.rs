@@ -51,7 +51,10 @@ pub fn execute_command_side_effects(
                             contours = fill_state.contours.len(),
                             "Successfully tessellated contours"
                         );
-                        commands.push(DrawCommand::Mesh(mesh_data));
+                        commands.push(DrawCommand::Mesh {
+                            turtle_id: 0,
+                            data: mesh_data,
+                        });
                     } else {
                         tracing::error!("Failed to tessellate contours");
                     }
@@ -153,7 +156,10 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                     state.pen_width,
                     false, // not closed
                 ) {
-                    world.add_command(DrawCommand::Mesh(mesh_data));
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id: 0,
+                        data: mesh_data,
+                    });
                 }
             }
         }
@@ -172,19 +178,21 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
             let geom = CircleGeometry::new(state.position, start_heading, *radius, *direction);
 
             if state.pen_down {
-                let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
-
                 // Use Lyon to tessellate the arc
                 if let Ok(mesh_data) = tessellation::tessellate_arc(
                     geom.center,
                     *radius,
-                    rotation_degrees,
-                    arc_degrees,
+                    geom.start_angle_from_center.to_degrees(),
+                    *angle,
                     state.color,
                     state.pen_width,
                     *steps,
+                    *direction,
                 ) {
-                    world.add_command(DrawCommand::Mesh(mesh_data));
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id: 0,
+                        data: mesh_data,
+                    });
                 }
             }
 
@@ -208,7 +216,10 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
                     state.pen_width,
                     false, // not closed
                 ) {
-                    world.add_command(DrawCommand::Mesh(mesh_data));
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id: 0,
+                        data: mesh_data,
+                    });
                 }
             }
         }
@@ -230,24 +241,40 @@ pub fn execute_command(command: &TurtleCommand, state: &mut TurtleState, world: 
     record_fill_vertices_after_movement(command, &start_state, state);
 }
 
-/// Add drawing command for a completed tween (state transition already occurred)
-pub fn add_draw_for_completed_tween(
+/// Execute command on a specific turtle by ID
+pub fn execute_command_with_id(command: &TurtleCommand, turtle_id: usize, world: &mut TurtleWorld) {
+    // Clone turtle state to avoid borrow checker issues
+    if let Some(turtle) = world.get_turtle(turtle_id) {
+        let mut state = turtle.clone();
+        execute_command(command, &mut state, world);
+        // Update the turtle state back
+        if let Some(turtle_mut) = world.get_turtle_mut(turtle_id) {
+            *turtle_mut = state;
+        }
+    }
+}
+
+/// Add drawing command for a completed tween with turtle_id tracking
+pub fn add_draw_for_completed_tween_with_id(
     command: &TurtleCommand,
     start_state: &TurtleState,
     end_state: &TurtleState,
     world: &mut TurtleWorld,
+    turtle_id: usize,
 ) {
     match command {
         TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
             if start_state.pen_down {
-                // Draw line segment with round caps
                 if let Ok(mesh_data) = tessellation::tessellate_stroke(
                     &[start_state.position, end_state.position],
                     start_state.color,
                     start_state.pen_width,
-                    false, // not closed
+                    false,
                 ) {
-                    world.add_command(DrawCommand::Mesh(mesh_data));
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id,
+                        data: mesh_data,
+                    });
                 }
             }
         }
@@ -264,19 +291,79 @@ pub fn add_draw_for_completed_tween(
                     *radius,
                     *direction,
                 );
-                let (rotation_degrees, arc_degrees) = geom.draw_arc_params(*angle);
-
-                // Use Lyon to tessellate the arc
                 if let Ok(mesh_data) = tessellation::tessellate_arc(
                     geom.center,
                     *radius,
-                    rotation_degrees,
-                    arc_degrees,
+                    geom.start_angle_from_center.to_degrees(),
+                    *angle,
                     start_state.color,
                     start_state.pen_width,
                     *steps,
+                    *direction,
                 ) {
-                    world.add_command(DrawCommand::Mesh(mesh_data));
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id,
+                        data: mesh_data,
+                    });
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Add drawing command for a completed tween (state transition already occurred)
+pub fn add_draw_for_completed_tween(
+    command: &TurtleCommand,
+    start_state: &TurtleState,
+    end_state: &TurtleState,
+    world: &mut TurtleWorld,
+) {
+    match command {
+        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+            if start_state.pen_down {
+                // Draw line segment with round caps
+                if let Ok(mesh_data) = tessellation::tessellate_stroke(
+                    &[start_state.position, end_state.position],
+                    start_state.color,
+                    start_state.pen_width,
+                    false,
+                ) {
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id: 0,
+                        data: mesh_data,
+                    });
+                }
+            }
+        }
+        TurtleCommand::Circle {
+            radius,
+            angle,
+            steps,
+            direction,
+        } => {
+            if start_state.pen_down {
+                let geom = CircleGeometry::new(
+                    start_state.position,
+                    start_state.heading,
+                    *radius,
+                    *direction,
+                );
+
+                if let Ok(mesh_data) = tessellation::tessellate_arc(
+                    geom.center,
+                    *radius,
+                    geom.start_angle_from_center.to_degrees(),
+                    *angle,
+                    start_state.color,
+                    start_state.pen_width,
+                    *steps,
+                    *direction,
+                ) {
+                    world.add_command(DrawCommand::Mesh {
+                        turtle_id: 0,
+                        data: mesh_data,
+                    });
                 }
             }
         }
@@ -311,7 +398,7 @@ mod tests {
 
         // We'll use a dummy world but won't actually call drawing commands
         let mut world = TurtleWorld {
-            turtle: state.clone(),
+            turtles: vec![state.clone()],
             commands: Vec::new(),
             camera: macroquad::camera::Camera2D {
                 zoom: vec2(1.0, 1.0),
@@ -323,6 +410,7 @@ mod tests {
             },
             background_color: Color::new(1.0, 1.0, 1.0, 1.0),
         };
+        let mut state = world.turtles[0].clone();
 
         // Initial state: position (0, 0), heading 0 (east)
         assert_eq!(state.position.x, 0.0);

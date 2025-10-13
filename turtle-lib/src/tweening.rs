@@ -45,26 +45,29 @@ impl From<TweenVec2> for Vec2 {
 
 /// Controls tweening of turtle commands
 pub struct TweenController {
+    turtle_id: usize,
     queue: CommandQueue,
     current_tween: Option<CommandTween>,
     speed: AnimationSpeed,
 }
 
-pub(crate) struct CommandTween {
+pub struct CommandTween {
+    pub turtle_id: usize,
     pub command: TurtleCommand,
     pub start_time: f64,
     pub duration: f64,
     pub start_state: TurtleState,
     pub target_state: TurtleState,
-    pub position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
-    pub heading_tweener: Tweener<f32, f64, CubicInOut>,
-    pub pen_width_tweener: Tweener<f32, f64, CubicInOut>,
+    position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
+    heading_tweener: Tweener<f32, f64, CubicInOut>,
+    pen_width_tweener: Tweener<f32, f64, CubicInOut>,
 }
 
 impl TweenController {
     #[must_use]
-    pub fn new(queue: CommandQueue, speed: AnimationSpeed) -> Self {
+    pub fn new(turtle_id: usize, queue: CommandQueue, speed: AnimationSpeed) -> Self {
         Self {
+            turtle_id,
             queue,
             current_tween: None,
             speed,
@@ -73,6 +76,11 @@ impl TweenController {
 
     pub fn set_speed(&mut self, speed: AnimationSpeed) {
         self.speed = speed;
+    }
+
+    /// Append commands to the queue
+    pub fn append_commands(&mut self, new_queue: CommandQueue) {
+        self.queue.extend(new_queue);
     }
 
     /// Update the tween, returns `Vec` of (`command`, `start_state`, `end_state`) for all completed commands this frame
@@ -285,6 +293,7 @@ impl TweenController {
             );
 
             self.current_tween = Some(CommandTween {
+                turtle_id: self.turtle_id,
                 command: command_clone,
                 start_time: get_time(),
                 duration,

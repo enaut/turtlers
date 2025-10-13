@@ -65,6 +65,11 @@ impl TurtleState {
         Angle::radians(self.heading)
     }
 
+    /// Reset turtle to default state
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
     /// Start recording fill vertices
     pub fn begin_fill(&mut self, fill_color: Color) {
         self.filling = Some(FillState {
@@ -225,12 +230,15 @@ impl MeshData {
 #[derive(Clone, Debug)]
 pub enum DrawCommand {
     /// Pre-tessellated mesh data (lines, arcs, circles, polygons - all use this)
-    Mesh(MeshData),
+    /// Includes the turtle ID that created this command
+    Mesh { turtle_id: usize, data: MeshData },
 }
 
 /// The complete turtle world containing all drawing state
 pub struct TurtleWorld {
-    pub turtle: TurtleState,
+    /// All turtles in the world (indexed by turtle ID)
+    pub turtles: Vec<TurtleState>,
+    /// All drawing commands from all turtles
     pub commands: Vec<DrawCommand>,
     pub camera: Camera2D,
     pub background_color: Color,
@@ -240,7 +248,7 @@ impl TurtleWorld {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            turtle: TurtleState::default(),
+            turtles: vec![TurtleState::default()], // Start with one default turtle
             commands: Vec::new(),
             camera: Camera2D {
                 zoom: vec2(1.0 / screen_width() * 2.0, 1.0 / screen_height() * 2.0),
@@ -251,13 +259,44 @@ impl TurtleWorld {
         }
     }
 
+    /// Add a new turtle and return its ID
+    pub fn add_turtle(&mut self) -> usize {
+        self.turtles.push(TurtleState::default());
+        self.turtles.len() - 1
+    }
+
+    /// Get turtle by ID
+    #[must_use]
+    pub fn get_turtle(&self, id: usize) -> Option<&TurtleState> {
+        self.turtles.get(id)
+    }
+
+    /// Get mutable turtle by ID
+    pub fn get_turtle_mut(&mut self, id: usize) -> Option<&mut TurtleState> {
+        self.turtles.get_mut(id)
+    }
+
+    /// Reset a specific turtle to default state and remove all its drawings
+    pub fn reset_turtle(&mut self, turtle_id: usize) {
+        if let Some(turtle) = self.get_turtle_mut(turtle_id) {
+            turtle.reset();
+        }
+        // Remove all commands created by this turtle
+        self.commands.retain(|cmd| match cmd {
+            DrawCommand::Mesh { turtle_id: id, .. } => *id != turtle_id,
+        });
+    }
+
     pub fn add_command(&mut self, cmd: DrawCommand) {
         self.commands.push(cmd);
     }
 
+    /// Clear all drawings and reset all turtle states
     pub fn clear(&mut self) {
         self.commands.clear();
-        self.turtle = TurtleState::default();
+        for turtle in &mut self.turtles {
+            turtle.reset();
+        }
     }
 }
 
