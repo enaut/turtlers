@@ -46,7 +46,7 @@ async fn main() {
     );
 
     // Create a turtle plan with fill operations to see detailed logging
-    let mut t = create_turtle();
+    let mut t = create_turtle_plan();
     t.set_speed(900);
 
     // Draw a yin-yang symbol with fills (generates lots of debug output)

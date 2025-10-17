@@ -12,7 +12,7 @@ use turtle_lib::*;
 
 #[macroquad::main("Cheese with Holes")]
 async fn main() {
-    let mut turtle = create_turtle();
+    let mut turtle = create_turtle_plan();
 
     // Set fill color to yellow (cheese color!)
     turtle.set_fill_color(YELLOW);

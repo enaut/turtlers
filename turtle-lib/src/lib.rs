@@ -271,12 +271,6 @@ impl Default for TurtleApp {
 /// let commands = turtle.build();
 /// ```
 #[must_use]
-pub fn create_turtle() -> TurtlePlan {
+pub fn create_turtle_plan() -> TurtlePlan {
     TurtlePlan::new()
-}
-
-/// Convenience function to get a turtle plan (alias for `create_turtle`)
-#[must_use]
-pub fn get_a_turtle() -> TurtlePlan {
-    create_turtle()
 }

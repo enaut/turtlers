@@ -30,7 +30,7 @@ async fn main() {
     set_window_size(1900, 1000);
 
     // Turtle 0 (default turtle) - Draw a spiral (red)
-    let mut turtle0 = create_turtle();
+    let mut turtle0 = create_turtle_plan();
     turtle0.right(45.0);
     turtle0.set_speed(1900.0);
     turtle0.set_pen_color(RED);
@@ -48,7 +48,7 @@ async fn main() {
 
     // Turtle 1 - Draw a square (blue)
     let turtle1_id = app.add_turtle();
-    let mut turtle1 = create_turtle();
+    let mut turtle1 = create_turtle_plan();
     turtle1.set_speed(1900.0);
     turtle1.pen_up();
     turtle1.go_to(vec2(-200.0, 0.0));
@@ -64,7 +64,7 @@ async fn main() {
 
     // Turtle 2 - Draw a hexagon (green)
     let turtle2_id = app.add_turtle();
-    let mut turtle2 = create_turtle();
+    let mut turtle2 = create_turtle_plan();
     turtle2.set_speed(150.0);
     turtle2.pen_up();
     turtle2.go_to(vec2(200.0, 0.0));
@@ -77,7 +77,7 @@ async fn main() {
 
     // Turtle 3 - Draw a star (yellow)
     let turtle3_id = app.add_turtle();
-    let mut turtle3 = create_turtle();
+    let mut turtle3 = create_turtle_plan();
     turtle3.set_fill_color(ORANGE);
     turtle3.begin_fill();
     turtle3.set_speed(150.0);
@@ -92,7 +92,7 @@ async fn main() {
     turtle3.end_fill();
     // Turtle 4 - Draw a filled circle (purple)
     let turtle4_id = app.add_turtle();
-    let mut turtle4 = create_turtle();
+    let mut turtle4 = create_turtle_plan();
     turtle4.set_speed(150.0);
     turtle4.pen_up();
     turtle4.go_to(vec2(0.0, -150.0));

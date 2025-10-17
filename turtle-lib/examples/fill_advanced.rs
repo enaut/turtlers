@@ -8,7 +8,7 @@ use turtle_lib::*;
 #[macroquad::main("Advanced Fill Demo")]
 async fn main() {
     set_window_size(2000, 1900);
-    let mut t = create_turtle();
+    let mut t = create_turtle_plan();
 
     // Example 1: Star shape (concave polygon)
     t.pen_up();

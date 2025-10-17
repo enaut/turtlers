@@ -53,7 +53,7 @@ use syn::{parse_macro_input, ItemFn};
 ///
 /// #[macroquad::main("My Turtle Drawing")]
 /// async fn main() {
-///     let mut turtle = create_turtle();
+///     let mut turtle = create_turtle_plan();
 ///     
 ///     // Your drawing code here
 ///     turtle.set_pen_color(RED);
@@ -102,7 +102,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                let mut turtle = turtle_lib::create_turtle();
+                let mut turtle = turtle_lib::create_turtle_plan();
 
                 // Call the user's function with the turtle
                 #fn_name(&mut turtle);
@@ -139,7 +139,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                let mut turtle = turtle_lib::create_turtle();
+                let mut turtle = turtle_lib::create_turtle_plan();
 
                 // Inline the user's code
                 #fn_block
