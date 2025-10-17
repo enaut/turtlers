@@ -287,12 +287,8 @@ pub struct TurtleWorld {
 impl TurtleWorld {
     #[must_use]
     pub fn new() -> Self {
-        let mut default_turtle = Turtle::default();
-        default_turtle.turtle_id = 0;
-        default_turtle.tween_controller =
-            TweenController::new(CommandQueue::new(), AnimationSpeed::default());
         Self {
-            turtles: vec![default_turtle], // Start with one default turtle
+            turtles: vec![], // Start with no turtles
             camera: Camera2D {
                 zoom: vec2(1.0 / screen_width() * 2.0, 1.0 / screen_height() * 2.0),
                 target: vec2(0.0, 0.0),
