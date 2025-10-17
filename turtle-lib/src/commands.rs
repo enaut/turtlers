@@ -45,7 +45,7 @@ pub enum TurtleCommand {
 }
 
 /// Queue of turtle commands with execution state
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CommandQueue {
     commands: Vec<TurtleCommand>,
     current_index: usize,

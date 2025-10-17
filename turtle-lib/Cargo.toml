@@ -8,7 +8,10 @@ license = "MIT OR Apache-2.0"
 macroquad = "0.4"
 tween = "2.1.0"
 lyon = "1.0"
-tracing = { version = "0.1", features = ["log"], default-features = false }
+tracing = { version = "0.1", features = [
+    "log",
+    "attributes",
+], default-features = false }
 turtle-lib-macros = { path = "../turtle-lib-macros" }
 
 [dev-dependencies]

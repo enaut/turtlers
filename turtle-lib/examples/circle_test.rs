@@ -13,11 +13,13 @@ fn draw(turtle: &mut TurtlePlan) {
     turtle.set_speed(999);
     turtle.circle_left(100.0, 540.0, 72); // partial circle to the left
 
+    turtle.begin_fill();
     turtle.forward(150.0);
     turtle.set_speed(100);
     turtle.set_pen_color(BLUE);
     turtle.circle_right(50.0, 270.0, 72); // partial circle to the right
                                           // Set animation speed
+    turtle.end_fill();
     turtle.set_speed(20);
     turtle.forward(150.0);
     turtle.circle_left(50.0, 180.0, 12);

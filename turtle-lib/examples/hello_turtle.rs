@@ -4,7 +4,7 @@
 
 use turtle_lib::*;
 
-#[turtle_main("Hello Turtle")]
+#[turtle_main]
 fn hello() {
     turtle.set_pen_color(BLUE);
     for _ in 0..4 {

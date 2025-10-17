@@ -31,7 +31,7 @@ async fn main() {
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
                 // Default to showing info-level logs if RUST_LOG is not set
-                tracing_subscriber::EnvFilter::new("turtle_lib=info")
+                tracing_subscriber::EnvFilter::new("turtle_lib=trace")
             }),
         )
         .with_target(true) // Show which module the log came from
@@ -75,7 +75,7 @@ async fn main() {
     t.set_speed(100); // Slow animation to see the logs in real-time
 
     // Create turtle app
-    let mut app = TurtleApp::new().with_commands(0, t.build());
+    let mut app = TurtleApp::new().with_commands(t.build());
 
     // Main loop
     loop {

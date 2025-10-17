@@ -19,7 +19,7 @@ use syn::{parse_macro_input, ItemFn};
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use turtle_lib::*;
 ///
 /// #[turtle_main("My Turtle Drawing")]
@@ -34,7 +34,7 @@ use syn::{parse_macro_input, ItemFn};
 ///
 /// If you need macroquad types not re-exported by turtle_lib:
 ///
-/// ```no_run
+/// ```ignore
 /// use macroquad::prelude::SKYBLUE;  // Import specific items
 /// use turtle_lib::*;
 ///
@@ -47,7 +47,7 @@ use syn::{parse_macro_input, ItemFn};
 ///
 /// This expands to approximately:
 ///
-/// ```no_run
+/// ```ignore
 /// use macroquad::prelude::*;
 /// use turtle_lib::*;
 ///
@@ -61,7 +61,7 @@ use syn::{parse_macro_input, ItemFn};
 ///     turtle.right(90.0);
 ///     turtle.forward(100.0);
 ///
-///     let mut app = TurtleApp::new().with_commands(0, turtle.build());
+///     let mut app = TurtleApp::new().with_commands(turtle.build());
 ///
 ///     loop {
 ///         clear_background(WHITE);
@@ -108,7 +108,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 #fn_name(&mut turtle);
 
                 let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(0, turtle.build());
+                    .with_commands(turtle.build());
 
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
@@ -145,7 +145,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 #fn_block
 
                 let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(0, turtle.build());
+                    .with_commands(turtle.build());
 
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);

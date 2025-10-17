@@ -49,7 +49,7 @@ fn draw(turtle: &mut TurtlePlan) {
     turtle.pen_up();
     turtle.backward(80.0);
     turtle.left(90.0);
-    turtle.forward(50.0);
+    turtle.backward(50.0);
     turtle.right(90.0);
     turtle.pen_down();
 

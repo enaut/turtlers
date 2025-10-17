@@ -40,7 +40,7 @@ use turtle_lib::*;
 #[turtle_main("Dragon Curve")]
 fn draw_dragon(turtle: &mut TurtlePlan) {
     // Fast drawing
-    turtle.set_speed(1200);
+    turtle.set_speed(1020);
 
     // Start position
     turtle.pen_up();

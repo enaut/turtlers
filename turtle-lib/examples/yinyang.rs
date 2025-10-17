@@ -24,7 +24,4 @@ fn draw(turtle: &mut TurtlePlan) {
     turtle.pen_down();
     turtle.circle_right(8.0, 360.0, 12);
     turtle.end_fill();
-
-    // Set animation speed
-    turtle.set_speed(1000);
 }
