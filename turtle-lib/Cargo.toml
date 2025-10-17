@@ -13,6 +13,7 @@ tracing = { version = "0.1", features = [
     "attributes",
 ], default-features = false }
 turtle-lib-macros = { path = "../turtle-lib-macros" }
+crossbeam = "0.8"
 
 [dev-dependencies]
 # For examples and testing

@@ -49,6 +49,7 @@
 pub mod builders;
 pub mod circle_geometry;
 pub mod commands;
+pub mod commands_channel;
 pub mod drawing;
 pub mod execution;
 pub mod general;
@@ -60,6 +61,7 @@ pub mod tweening;
 // Re-export commonly used types
 pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
 pub use commands::{CommandQueue, TurtleCommand};
+pub use commands_channel::{turtle_command_channel, TurtleCommandReceiver, TurtleCommandSender};
 pub use general::{Angle, AnimationSpeed, Color, Coordinate, Length, Precision};
 pub use shapes::{ShapeType, TurtleShape};
 pub use state::{DrawCommand, Turtle, TurtleWorld};
@@ -74,10 +76,13 @@ pub use macroquad::prelude::{
 };
 
 use macroquad::prelude::*;
+use std::collections::HashMap;
 
 /// Main turtle application struct
 pub struct TurtleApp {
     world: TurtleWorld,
+    // Receivers for turtle command channels
+    receivers: HashMap<usize, TurtleCommandReceiver>,
     // Mouse panning state
     is_dragging: bool,
     last_mouse_pos: Option<Vec2>,
@@ -91,6 +96,7 @@ impl TurtleApp {
     pub fn new() -> Self {
         Self {
             world: TurtleWorld::new(),
+            receivers: HashMap::new(),
             is_dragging: false,
             last_mouse_pos: None,
             zoom_level: 1.0,
@@ -100,6 +106,78 @@ impl TurtleApp {
     /// Add a new turtle and return its ID
     pub fn add_turtle(&mut self) -> usize {
         self.world.add_turtle()
+    }
+
+    /// Create a turtle and a command channel for it
+    ///
+    /// This is the preferred way to set up turtles when using threading.
+    /// Call this ONCE per turtle during setup, before spawning game logic threads.
+    ///
+    /// # Arguments
+    /// * `buffer_size` - Maximum pending command batches before sender blocks (typically 50-200)
+    ///
+    /// # Returns
+    /// A `TurtleCommandSender` that can be cloned and sent to game logic threads.
+    /// The turtle is automatically managed by TurtleApp.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// # #[macroquad::main("Threading")]
+    /// # async fn main() {
+    /// let mut app = TurtleApp::new();
+    ///
+    /// // Create turtle and get sender
+    /// let turtle_tx = app.create_turtle_channel(100);
+    ///
+    /// // Send to game threads
+    /// let tx_clone = turtle_tx.clone();
+    /// std::thread::spawn(move || {
+    ///     let mut plan = create_turtle_plan();
+    ///     plan.forward(100.0);
+    ///     tx_clone.send(plan.build()).ok();
+    /// });
+    /// # }
+    /// ```
+    pub fn create_turtle_channel(&mut self, buffer_size: usize) -> TurtleCommandSender {
+        let turtle_id = self.world.add_turtle();
+        let (tx, rx) = commands_channel::turtle_command_channel(turtle_id, buffer_size);
+        self.receivers.insert(turtle_id, rx);
+        tx
+    }
+
+    /// Process all pending commands from all turtle channels
+    ///
+    /// Call this once per frame in your render loop, before `update()`.
+    /// Drains all receivers and applies commands to their respective turtles.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// # #[macroquad::main("Threading")]
+    /// # async fn main() {
+    /// # let mut app = TurtleApp::new();
+    /// # let _tx = app.create_turtle_channel(100);
+    /// loop {
+    ///     clear_background(WHITE);
+    ///     app.process_commands();  // ← Process channel commands
+    ///     app.update();
+    ///     app.render();
+    ///     next_frame().await;
+    /// }
+    /// # }
+    /// ```
+    pub fn process_commands(&mut self) {
+        // Collect all turtle IDs to avoid borrow issues
+        let turtle_ids: Vec<usize> = self.receivers.keys().copied().collect();
+
+        for turtle_id in turtle_ids {
+            if let Some(receiver) = self.receivers.get(&turtle_id) {
+                for queue in receiver.recv_all() {
+                    self.append_commands(turtle_id, queue);
+                }
+            }
+        }
     }
 
     /// Add commands from a turtle plan to the application for the default turtle (ID 0)
@@ -154,6 +232,21 @@ impl TurtleApp {
 
         if let Some(turtle) = self.world.get_turtle_mut(turtle_id) {
             turtle.tween_controller.append_commands(plan.build());
+        }
+    }
+
+    /// Append commands from a CommandQueue to a turtle's animation queue
+    ///
+    /// Used internally by `process_commands()` and can be used directly
+    /// when you have a `CommandQueue` instead of a `TurtlePlan`.
+    pub fn append_commands(&mut self, turtle_id: usize, queue: CommandQueue) {
+        // Ensure turtle exists
+        while self.world.turtles.len() <= turtle_id {
+            self.world.add_turtle();
+        }
+
+        if let Some(turtle) = self.world.get_turtle_mut(turtle_id) {
+            turtle.tween_controller.append_commands(queue);
         }
     }
 
