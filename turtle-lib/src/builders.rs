@@ -635,6 +635,41 @@ impl TurtlePlan {
         self
     }
 
+    /// Resets the turtle to its default state.
+    ///
+    /// This clears all drawings, clears the animation queue, and resets all turtle parameters:
+    /// - Position: (0, 0)
+    /// - Heading: 0° (facing right)
+    /// - Pen: down
+    /// - Pen width: 2.0
+    /// - Pen color: black
+    /// - Fill color: none
+    /// - Visibility: visible
+    /// - Shape: arrow
+    /// - Speed: default
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Reset Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Draw something
+    ///     turtle.forward(100.0);
+    ///     
+    ///     // Reset everything back to default
+    ///     turtle.reset();
+    ///     
+    ///     // Start fresh
+    ///     turtle.forward(50.0);
+    /// }
+    /// ```
+    pub fn reset(&mut self) -> &mut Self {
+        self.queue.push(TurtleCommand::Reset);
+        self
+    }
+
     /// Consumes the `TurtlePlan` and returns the command queue.
     ///
     /// Use this to finalize the turtle commands and pass them to `TurtleApp`.

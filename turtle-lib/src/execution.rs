@@ -30,7 +30,6 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
             state.begin_fill(fill_color);
             true
         }
-
         TurtleCommand::EndFill => {
             if let Some(mut fill_state) = state.filling.take() {
                 if !fill_state.current_contour.is_empty() {
@@ -79,7 +78,6 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
             }
             true
         }
-
         TurtleCommand::PenUp => {
             state.params.pen_down = false;
             if state.filling.is_some() {
@@ -91,7 +89,6 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
             state.close_fill_contour();
             true
         }
-
         TurtleCommand::PenDown => {
             state.params.pen_down = true;
             if state.filling.is_some() {
@@ -106,7 +103,23 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
             true
         }
 
-        _ => false, // Not a side-effect-only command
+        TurtleCommand::Reset => {
+            state.reset();
+            true
+        }
+
+        TurtleCommand::Move(_)
+        | TurtleCommand::Turn(_)
+        | TurtleCommand::Circle { .. }
+        | TurtleCommand::Goto(_)
+        | TurtleCommand::SetColor(_)
+        | TurtleCommand::SetFillColor(_)
+        | TurtleCommand::SetPenWidth(_)
+        | TurtleCommand::SetSpeed(_)
+        | TurtleCommand::SetShape(_)
+        | TurtleCommand::SetHeading(_)
+        | TurtleCommand::ShowTurtle
+        | TurtleCommand::HideTurtle => false,
     }
 }
 
@@ -247,6 +260,11 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
         TurtleCommand::SetHeading(heading) => state.params.heading = *heading,
         TurtleCommand::ShowTurtle => state.params.visible = true,
         TurtleCommand::HideTurtle => state.params.visible = false,
+
+        // Reset
+        TurtleCommand::Reset => {
+            state.reset();
+        }
 
         _ => {} // Already handled by execute_command_side_effects
     }

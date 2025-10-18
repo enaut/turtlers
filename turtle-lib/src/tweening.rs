@@ -436,6 +436,10 @@ impl TweenController {
                 // Fill commands don't change turtle state for tweening purposes
                 // They're handled directly in execution
             }
+            TurtleCommand::Reset => {
+                // Reset returns to default state
+                target = TurtleParams::default();
+            }
         }
 
         target

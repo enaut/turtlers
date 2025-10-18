@@ -92,11 +92,18 @@ impl Turtle {
         Angle::radians(self.params.heading)
     }
 
-    /// Reset turtle to default state (preserves turtle_id)
+    /// Reset turtle to default state (preserves turtle_id and queued commands)
     pub fn reset(&mut self) {
-        let id = self.turtle_id;
-        *self = Self::default();
-        self.turtle_id = id;
+        // Clear all drawings
+        self.commands.clear();
+
+        // Clear fill state
+        self.filling = None;
+
+        // Reset parameters to defaults
+        self.params = TurtleParams::default();
+
+        // Keep turtle_id and tween_controller (preserves queued commands)
     }
 
     /// Start recording fill vertices

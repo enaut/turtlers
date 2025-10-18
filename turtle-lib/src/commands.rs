@@ -42,6 +42,9 @@ pub enum TurtleCommand {
     // Fill operations
     BeginFill,
     EndFill,
+
+    // Reset
+    Reset,
 }
 
 /// Queue of turtle commands with execution state
