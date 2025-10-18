@@ -368,7 +368,8 @@ impl TurtlePlan {
     /// }
     /// ```
     pub fn set_heading(&mut self, heading: Precision) -> &mut Self {
-        self.queue.push(TurtleCommand::SetHeading(heading));
+        self.queue
+            .push(TurtleCommand::SetHeading(-heading.to_radians()));
         self
     }
 
@@ -665,7 +666,6 @@ impl TurtlePlan {
     ///           .write_text("End", 16u16);
     /// }
     /// ```
-    #[must_use]
     pub fn write_text<T>(&mut self, text: impl Into<String>, font_size: T) -> &mut Self
     where
         T: Into<FontSize>,
