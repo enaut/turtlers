@@ -18,3 +18,4 @@ crossbeam = "0.8"
 [dev-dependencies]
 # For examples and testing
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+dialog = "*"

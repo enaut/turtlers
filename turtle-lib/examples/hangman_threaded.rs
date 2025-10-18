@@ -6,8 +6,7 @@
 //!
 //! Run with: `cargo run --package turtle-lib --example hangman_threaded`
 
-use std::io::{self, Write};
-use std::sync::mpsc;
+use dialog::DialogBox;
 use std::thread;
 use turtle_lib::*;
 
@@ -68,10 +67,6 @@ async fn main() {
     println!("Game ended. Goodbye!");
 }
 
-enum GameMessage {
-    GameOver { won: bool, word: String },
-}
-
 fn run_game_logic(
     hangman_tx: TurtleCommandSender,
     lines_tx: TurtleCommandSender,
@@ -80,6 +75,15 @@ fn run_game_logic(
     let secret = choose_word();
     println!("Starting hangman game...");
     println!("Secret word has {} letters", secret.len());
+
+    // hide the smiley at start
+    {
+        let mut plan = create_turtle_plan();
+        plan.hide();
+        smiley_tx.send(plan.build()).ok();
+    }
+
+    draw_smiley(&smiley_tx, true);
 
     // Setup: Position hangman turtle and draw base (hill)
     {
@@ -139,12 +143,34 @@ fn choose_word() -> &'static str {
 }
 
 fn ask_for_letter() -> String {
-    print!("Guess a letter: ");
-    io::stdout().flush().ok();
-
-    let mut guess = String::new();
-    io::stdin().read_line(&mut guess).ok();
-    guess.trim().to_string()
+    loop {
+        match dialog::Input::new("Enter a single letter to guess")
+            .title("Hangman - Letter Guess")
+            .show()
+        {
+            Ok(Some(input)) => {
+                let trimmed = input.trim();
+                if trimmed.len() == 1 && trimmed.chars().all(|c| c.is_alphabetic()) {
+                    return trimmed.to_lowercase();
+                } else {
+                    // Invalid input, show error and retry
+                    let _ = dialog::Message::new("Please enter exactly one letter (a-z).")
+                        .title("Invalid Input")
+                        .show();
+                    // Loop continues to ask again
+                }
+            }
+            Ok(None) => {
+                // User cancelled - ask again
+                continue;
+            }
+            Err(e) => {
+                // Dialog system failed - exit game
+                eprintln!("Dialog error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
 }
 
 fn setup_hangman(plan: &mut TurtlePlan) {
@@ -243,35 +269,16 @@ fn draw_lines_state(tx: &TurtleCommandSender, secret: &str, all_guesses: &str) {
         .go_to(vec2(-100.0, 100.0))
         .pen_down();
 
-    // Print word state in console
-    print!("Word: ");
-    for letter in secret.chars() {
-        if all_guesses.contains(letter) {
-            print!("{} ", letter);
-        } else {
-            print!("_ ");
-        }
-    }
-    println!();
-
-    // Draw underscores/circles for each letter
+    // Draw underscores/circles for each letter with text labels
     for letter in secret.chars() {
         if all_guesses.contains(letter) {
             // Draw green circle for revealed letter
-            plan.pen_up()
-                .right(90.0)
-                .forward(2.5)
-                .set_pen_color(GREEN)
-                .pen_down()
-                .circle_left(7.5, 360.0, 24)
-                .pen_up()
-                .backward(2.5)
-                .left(90.0)
-                .set_pen_color(BLACK)
-                .pen_down();
+            plan.set_pen_color(GREEN)
+                .write_text(&letter.to_uppercase().to_string(), 32u16)
+                .forward(15.0);
         } else {
             // Draw black underscore
-            plan.forward(15.0);
+            plan.set_pen_color(BLACK).forward(15.0);
         }
         plan.pen_up().forward(15.0).pen_down();
     }
@@ -281,27 +288,29 @@ fn draw_lines_state(tx: &TurtleCommandSender, secret: &str, all_guesses: &str) {
 
 fn draw_smiley(tx: &TurtleCommandSender, won: bool) {
     let mut plan = create_turtle_plan();
-    plan.hide()
+    plan.reset()
+        .hide()
         .set_speed(1001) // Instant mode
         .pen_up()
-        .go_to(vec2(100.0, 0.0)) // Right side of screen
+        .go_to(vec2(100.0, -100.0)) // Right side of screen
         .pen_down()
-        .set_pen_color(if won { GREEN } else { RED });
+        .set_pen_color(if won { GREEN } else { RED })
+        .left(90.);
 
     // Face
-    plan.circle_left(50.0, 360.0, 72);
+    plan.circle_right(50.0, 360.0, 72);
 
     // Left eye
     plan.pen_up()
-        .forward(27.5)
+        .forward(10.0)
         .right(90.0)
-        .forward(20.0)
+        .forward(27.5)
         .pen_down()
         .circle_left(3.0, 360.0, 24);
 
     // Right eye
     plan.pen_up()
-        .forward(42.5)
+        .forward(45.0)
         .pen_down()
         .circle_left(3.0, 360.0, 24);
 
@@ -309,7 +318,7 @@ fn draw_smiley(tx: &TurtleCommandSender, won: bool) {
     plan.pen_up()
         .backward(42.5)
         .left(90.0)
-        .backward(40.0)
+        .backward(30.0)
         .right(90.0)
         .pen_down();
 
