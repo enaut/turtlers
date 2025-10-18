@@ -31,6 +31,15 @@ pub fn render_world(world: &TurtleWorld) {
                 DrawCommand::Mesh { data } => {
                     draw_mesh(&data.to_mesh());
                 }
+                DrawCommand::Text {
+                    text,
+                    position,
+                    heading,
+                    font_size,
+                    color,
+                } => {
+                    draw_text_command(text, *position, *heading, *font_size, *color);
+                }
             }
         }
     }
@@ -69,6 +78,15 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
             match cmd {
                 DrawCommand::Mesh { data } => {
                     draw_mesh(&data.to_mesh());
+                }
+                DrawCommand::Text {
+                    text,
+                    position,
+                    heading,
+                    font_size,
+                    color,
+                } => {
+                    draw_text_command(text, *position, *heading, *font_size, *color);
                 }
             }
         }
@@ -282,6 +300,42 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
 fn should_draw_tween_line(command: &crate::commands::TurtleCommand) -> bool {
     use crate::commands::TurtleCommand;
     matches!(command, TurtleCommand::Move(..) | TurtleCommand::Goto(..))
+}
+
+/// Draw a text command with rotation based on turtle heading
+fn draw_text_command(
+    text: &str,
+    position: Vec2,
+    heading_radians: f32,
+    font_size: crate::general::FontSize,
+    color: Color,
+) {
+    // Heading in turtle coordinates: 0 rad = right, positive = counter-clockwise
+    // Macroquad rotation: same convention (0 = right, positive = counter-clockwise)
+    // So we use the heading directly
+    let rotation_rad = heading_radians;
+
+    // Calculate perpendicular offset (90° clockwise from heading)
+    // This places text slightly to the right of the movement direction
+    let font_size_val = font_size.value();
+    let offset_distance = f32::from(font_size_val) / 3.0;
+
+    // Perpendicular direction: heading - π/2 (rotated 90° clockwise)
+    let perpendicular_angle = heading_radians - std::f32::consts::PI / 2.0;
+    let offset_x = offset_distance * perpendicular_angle.cos();
+    let offset_y = offset_distance * perpendicular_angle.sin();
+
+    draw_text_ex(
+        text,
+        position.x + offset_x,
+        position.y + offset_y,
+        TextParams {
+            font_size: font_size_val,
+            rotation: rotation_rad,
+            color,
+            ..Default::default()
+        },
+    );
 }
 
 /// Draw arc segments for circle tween animation

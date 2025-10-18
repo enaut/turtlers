@@ -108,6 +108,17 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
             true
         }
 
+        TurtleCommand::WriteText { text, font_size } => {
+            state.commands.push(DrawCommand::Text {
+                text: text.clone(),
+                position: state.params.position,
+                heading: state.params.heading,
+                font_size: *font_size,
+                color: state.params.color,
+            });
+            true
+        }
+
         TurtleCommand::Move(_)
         | TurtleCommand::Turn(_)
         | TurtleCommand::Circle { .. }

@@ -1,7 +1,7 @@
 //! Builder pattern traits for creating turtle command sequences
 
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::{AnimationSpeed, Color, Coordinate, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, FontSize, Precision};
 use crate::shapes::{ShapeType, TurtleShape};
 
 /// Trait for adding commands to a queue
@@ -632,6 +632,48 @@ impl TurtlePlan {
     /// ```
     pub fn go_to(&mut self, coord: impl Into<Coordinate>) -> &mut Self {
         self.queue.push(TurtleCommand::Goto(coord.into()));
+        self
+    }
+
+    /// Writes text at the turtle's current position, oriented along its heading direction.
+    ///
+    /// The text is rendered with its baseline positioned slightly above the turtle's current position,
+    /// and rotated to align with the turtle's current heading.
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - The text to render (can be `&str` or `String`)
+    /// * `font_size` - The font size, can be any type that converts to `FontSize` (e.g., `f32`, `u16`, `i32`)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Text Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Write text at current position (heading 0° = horizontal)
+    ///     turtle.write_text("Hello", 20.0);
+    ///
+    ///     // Move forward and write at an angle
+    ///     turtle.forward(100.0)
+    ///           .right(45.0)
+    ///           .write_text("World", 24);
+    ///
+    ///     // Chain with other commands
+    ///     turtle.forward(50.0)
+    ///           .write_text("End", 16u16);
+    /// }
+    /// ```
+    #[must_use]
+    pub fn write_text<T>(&mut self, text: impl Into<String>, font_size: T) -> &mut Self
+    where
+        T: Into<FontSize>,
+    {
+        self.queue.push(TurtleCommand::WriteText {
+            text: text.into(),
+            font_size: font_size.into(),
+        });
         self
     }
 

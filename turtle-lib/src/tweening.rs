@@ -432,8 +432,8 @@ impl TweenController {
             TurtleCommand::SetFillColor(color) => {
                 target.fill_color = *color;
             }
-            TurtleCommand::BeginFill | TurtleCommand::EndFill => {
-                // Fill commands don't change turtle state for tweening purposes
+            TurtleCommand::BeginFill | TurtleCommand::EndFill | TurtleCommand::WriteText { .. } => {
+                // Fill and text commands don't change turtle state for tweening purposes
                 // They're handled directly in execution
             }
             TurtleCommand::Reset => {

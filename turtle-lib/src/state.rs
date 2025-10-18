@@ -281,6 +281,14 @@ impl MeshData {
 pub enum DrawCommand {
     /// Pre-tessellated mesh data (lines, arcs, circles, polygons - all use this)
     Mesh { data: MeshData },
+    /// Text rendering command
+    Text {
+        text: String,
+        position: Vec2,
+        heading: f32,
+        font_size: crate::general::FontSize,
+        color: Color,
+    },
 }
 
 /// The complete turtle world containing all drawing state

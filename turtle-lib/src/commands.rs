@@ -1,6 +1,6 @@
 //! Turtle commands and command queue
 
-use crate::general::{AnimationSpeed, Color, Coordinate, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, FontSize, Precision};
 use crate::shapes::TurtleShape;
 
 /// Individual turtle commands
@@ -42,6 +42,12 @@ pub enum TurtleCommand {
     // Fill operations
     BeginFill,
     EndFill,
+
+    // Text rendering
+    WriteText {
+        text: String,
+        font_size: FontSize,
+    },
 
     // Reset
     Reset,

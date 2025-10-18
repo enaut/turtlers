@@ -3,9 +3,11 @@
 use macroquad::prelude::*;
 
 pub mod angle;
+pub mod fontsize;
 pub mod length;
 
 pub use angle::Angle;
+pub use fontsize::FontSize;
 pub use length::Length;
 
 /// Precision type for calculations
