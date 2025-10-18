@@ -34,23 +34,18 @@ async fn main() {
     let lines_tx = app.create_turtle_channel(100);
     let smiley_tx = app.create_turtle_channel(100);
 
-    // Channel for game logic to communicate with render thread
-    let (tx, rx) = mpsc::channel();
-
     // Spawn game logic thread
     let game_thread = thread::spawn({
         let hangman = hangman_tx.clone();
         let lines = lines_tx.clone();
         let smiley = smiley_tx.clone();
-        let tx = tx.clone();
 
         move || {
-            run_game_logic(hangman, lines, smiley, tx);
+            run_game_logic(hangman, lines, smiley);
         }
     });
 
     // Main render loop
-    let mut frame = 0;
     loop {
         // Check for quit
         if macroquad::prelude::is_key_pressed(macroquad::prelude::KeyCode::Escape)
@@ -59,30 +54,11 @@ async fn main() {
             break;
         }
 
-        // Process incoming commands from game thread
-        while let Ok(msg) = rx.try_recv() {
-            match msg {
-                GameMessage::GameOver { won, word } => {
-                    if won {
-                        println!("🎉 You Won! The word was: {}", word);
-                    } else {
-                        println!("💀 You Lost! The word was: {}", word);
-                    }
-                    break;
-                }
-            }
-        }
-
         // Clear and render
         macroquad::prelude::clear_background(WHITE);
         app.process_commands();
         app.update();
         app.render();
-
-        frame += 1;
-        if frame % 60 == 0 {
-            println!("Rendered {} frames", frame / 60);
-        }
 
         macroquad::prelude::next_frame().await;
     }
@@ -100,13 +76,12 @@ fn run_game_logic(
     hangman_tx: TurtleCommandSender,
     lines_tx: TurtleCommandSender,
     smiley_tx: TurtleCommandSender,
-    tx: mpsc::Sender<GameMessage>,
 ) {
     let secret = choose_word();
     println!("Starting hangman game...");
     println!("Secret word has {} letters", secret.len());
 
-    // Setup: Position hangman turtle and draw base (hill + mast)
+    // Setup: Position hangman turtle and draw base (hill)
     {
         let mut plan = create_turtle_plan();
         setup_hangman(&mut plan);
@@ -114,37 +89,23 @@ fn run_game_logic(
         hangman_tx.send(plan.build()).ok();
     }
 
-    // Give render thread time to process
-    std::thread::sleep(std::time::Duration::from_millis(100));
-
     let mut all_guesses = String::new();
     let mut wrong_guesses = 0;
     const MAX_WRONG: usize = 8; // 8 body parts after base
 
+    // Draw current state of lines
+    draw_lines_state(&lines_tx, &secret, &all_guesses);
     // Main game loop
     loop {
-        // Draw current state of lines
-        draw_lines_state(&lines_tx, &secret, &all_guesses);
-
         // Check if won
         if secret.chars().all(|c| all_guesses.contains(c)) {
             draw_smiley(&smiley_tx, true);
-            tx.send(GameMessage::GameOver {
-                won: true,
-                word: secret.to_string(),
-            })
-            .ok();
             break;
         }
 
         // Check if lost
         if wrong_guesses >= MAX_WRONG {
             draw_smiley(&smiley_tx, false);
-            tx.send(GameMessage::GameOver {
-                won: false,
-                word: secret.to_string(),
-            })
-            .ok();
             break;
         }
 
@@ -152,16 +113,12 @@ fn run_game_logic(
         let guess = ask_for_letter();
         let guess_lower = guess.to_lowercase();
 
-        // Check if already guessed
-        if all_guesses.contains(&guess_lower) {
-            println!("You already guessed '{}'", guess_lower);
-            continue;
-        }
-
         all_guesses.push_str(&guess_lower);
 
         if secret.contains(&guess_lower) {
             println!("✓ Correct! '{}' is in the word", guess_lower);
+            // Draw current state of lines
+            draw_lines_state(&lines_tx, &secret, &all_guesses);
         } else {
             println!("✗ Wrong! '{}' is NOT in the word", guess_lower);
             wrong_guesses += 1;
@@ -221,9 +178,9 @@ fn draw_hangman_step(tx: &TurtleCommandSender, step: usize) {
 
 // Hangman drawing functions (scaled down for visibility)
 fn draw_hill(plan: &mut TurtlePlan) {
-    plan.circle_left(50.0, 180.0, 36)
-        .left(180.0)
-        .circle_right(50.0, 90.0, 36)
+    plan.left(135.0)
+        .circle_left(100.0, 90.0, 36)
+        .circle_left(100.0, -45.0, 36)
         .right(90.0);
 }
 
@@ -278,24 +235,21 @@ fn draw_legs(plan: &mut TurtlePlan) {
 
 fn draw_lines_state(tx: &TurtleCommandSender, secret: &str, all_guesses: &str) {
     let mut plan = create_turtle_plan();
-    plan.hide()
-        .set_speed(1001) // Instant mode
+    plan.reset()
+        //.hide()
         .set_pen_color(BLACK)
         .set_pen_width(2.0)
         .pen_up()
-        .go_to(vec2(-100.0, 100.0)) // Top of screen
-        .pen_down()
-        .right(90.0);
+        .go_to(vec2(-100.0, 100.0))
+        .pen_down();
 
     // Print word state in console
     print!("Word: ");
     for letter in secret.chars() {
         if all_guesses.contains(letter) {
             print!("{} ", letter);
-            plan.forward(20.0);
         } else {
             print!("_ ");
-            plan.forward(20.0);
         }
     }
     println!();
@@ -305,20 +259,21 @@ fn draw_lines_state(tx: &TurtleCommandSender, secret: &str, all_guesses: &str) {
         if all_guesses.contains(letter) {
             // Draw green circle for revealed letter
             plan.pen_up()
-                .forward(2.5)
                 .right(90.0)
+                .forward(2.5)
                 .set_pen_color(GREEN)
                 .pen_down()
                 .circle_left(7.5, 360.0, 24)
-                .set_pen_color(BLACK)
-                .left(90.0)
+                .pen_up()
                 .backward(2.5)
-                .pen_up();
+                .left(90.0)
+                .set_pen_color(BLACK)
+                .pen_down();
         } else {
             // Draw black underscore
-            plan.forward(5.0);
+            plan.forward(15.0);
         }
-        plan.forward(15.0).pen_down();
+        plan.pen_up().forward(15.0).pen_down();
     }
 
     tx.send(plan.build()).ok();
