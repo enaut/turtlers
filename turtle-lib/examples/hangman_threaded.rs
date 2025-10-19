@@ -83,8 +83,6 @@ fn run_game_logic(
         smiley_tx.send(plan.build()).ok();
     }
 
-    draw_smiley(&smiley_tx, true);
-
     // Setup: Position hangman turtle and draw base (hill)
     {
         let mut plan = create_turtle_plan();

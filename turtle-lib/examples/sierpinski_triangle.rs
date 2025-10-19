@@ -90,7 +90,7 @@ fn sierpinski_triangle_auto(turtle: &mut TurtlePlan, level: u8) {
     let size = TRIANGLE_SIZE;
 
     turtle.pen_up();
-    turtle.go_to((-screen_width() / 2.0 + 20.0, screen_height() / 2.0 - 20.0));
+    turtle.go_to((-screen_width() / 2.0 + 20.0, -screen_height() / 2.0 + 20.0));
     turtle.set_heading(0.0); // 0 = East (pointing right)
 
     // The drawing itself.

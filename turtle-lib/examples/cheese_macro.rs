@@ -28,7 +28,7 @@ fn draw_cheese(turtle: &mut TurtlePlan) {
 
     // Draw triangular hole in the middle
     println!("Drawing triangular hole...");
-    turtle.go_to(vec2(200.0, 120.0));
+    turtle.go_to(vec2(200.0, -120.0));
     turtle.pen_down(); // Start new contour for hole
 
     for _ in 0..3 {
@@ -41,7 +41,7 @@ fn draw_cheese(turtle: &mut TurtlePlan) {
 
     // Draw circular hole (top-left) using circle_left
     println!("Drawing circular hole (top-left) with circle_left...");
-    turtle.go_to(vec2(100.0, 100.0));
+    turtle.go_to(vec2(100.0, -100.0));
     turtle.pen_down(); // Start new contour for hole
     turtle.circle_left(30.0, 360.0, 36); // radius=30, full circle, 36 steps
     println!("Closing circle contour with pen_up");
@@ -49,7 +49,7 @@ fn draw_cheese(turtle: &mut TurtlePlan) {
 
     // Draw circular hole (bottom-right) using circle_right
     println!("Drawing circular hole (bottom-right) with circle_right...");
-    turtle.go_to(vec2(280.0, 280.0));
+    turtle.go_to(vec2(280.0, -280.0));
     turtle.pen_down(); // Start new contour for hole
     turtle.circle_right(40.0, 360.0, 36); // radius=40, full circle, 36 steps
     println!("Closing circle contour with pen_up");
