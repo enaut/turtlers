@@ -400,7 +400,8 @@ impl TweenController {
                 });
             }
             TurtleCommand::Goto(coord) => {
-                target.position = *coord;
+                // Flip Y coordinate: turtle graphics uses Y+ = up, but Macroquad uses Y+ = down
+                target.position = vec2(coord.x, -coord.y);
             }
             TurtleCommand::SetHeading(heading) => {
                 target.heading = normalize_angle(*heading);

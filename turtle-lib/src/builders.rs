@@ -615,7 +615,7 @@ impl TurtlePlan {
     /// Coordinates are in screen space:
     /// - `(0, 0)` is at the center
     /// - Positive x goes right
-    /// - Positive y goes down
+    /// - Positive y goes up
     ///
     /// # Examples
     ///

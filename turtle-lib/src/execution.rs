@@ -247,7 +247,8 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
 
         TurtleCommand::Goto(coord) => {
             let start = state.params.position;
-            state.params.position = *coord;
+            // Flip Y coordinate: turtle graphics uses Y+ = up, but Macroquad uses Y+ = down
+            state.params.position = vec2(coord.x, -coord.y);
 
             if state.params.pen_down {
                 // Draw line segment with round caps
