@@ -41,7 +41,13 @@ async fn main() {
                     .pen_down()
                     .forward(10.0)
                     .right(90.0)
-                    .write_text(format!("{i}"), 2 * pen_size as i32 + 10)
+                    .pen_up()
+                    .backward(pen_size.max(4.0) + (i / 10) as f32 * 4.0) //Approximate width of text
+                    .pen_down()
+                    .write_text(format!("{i}"), 2 * pen_size as i32 + 14)
+                    .pen_up()
+                    .forward(pen_size.max(4.0) + (i / 10) as f32 * 4.0)
+                    .pen_down()
                     .left(90.0);
             }
 
@@ -51,7 +57,7 @@ async fn main() {
                 .go_to(vec2(0.0, 0.0))
                 .set_heading(90.0)
                 .right(FULL_CIRCLE / HOURS as f32 * (now.hour() % 12) as f32)
-                .set_pen_width(5.0)
+                .set_pen_width(7.0)
                 .pen_down()
                 .forward(120.0);
 
