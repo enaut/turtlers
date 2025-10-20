@@ -32,7 +32,7 @@
 //!
 //! #[macroquad::main("Turtle")]
 //! async fn main() {
-//!     let mut plan = create_turtle();
+//!     let mut plan = create_turtle_plan();
 //!     plan.forward(100.0).right(90.0).forward(100.0);
 //!     
 //!     let mut app = TurtleApp::new().with_commands(plan.build());
@@ -154,6 +154,7 @@ impl TurtleApp {
     /// # Examples
     /// ```no_run
     /// # use turtle_lib::*;
+    /// # use macroquad::prelude::{next_frame, clear_background, WHITE};
     /// # #[macroquad::main("Threading")]
     /// # async fn main() {
     /// # let mut app = TurtleApp::new();
@@ -359,7 +360,7 @@ impl Default for TurtleApp {
 /// ```
 /// use turtle_lib::*;
 ///
-/// let mut turtle = create_turtle();
+/// let mut turtle = create_turtle_plan();
 /// turtle.forward(100.0).right(90.0).forward(50.0);
 /// let commands = turtle.build();
 /// ```

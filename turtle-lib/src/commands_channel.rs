@@ -8,7 +8,7 @@
 //! ```no_run
 //! use turtle_lib::*;
 //! use std::thread;
-//!
+//! use macroquad::prelude::{next_frame, clear_background, WHITE};
 //! # #[macroquad::main("Threading")]
 //! # async fn main() {
 //! let mut app = TurtleApp::new();
@@ -59,7 +59,7 @@ use crossbeam::channel::{bounded, Receiver, Sender};
 /// // Send commands from game thread
 /// let mut plan = create_turtle_plan();
 /// plan.forward(50.0);
-/// tx.send(plan.build())?;
+/// tx.send(plan.clone().build())?;
 ///
 /// // Or non-blocking variant
 /// tx.try_send(plan.build()).ok();

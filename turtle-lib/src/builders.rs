@@ -222,7 +222,7 @@ pub trait CurvedMovement: WithCommands {
 }
 
 /// Builder for creating turtle command sequences
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct TurtlePlan {
     queue: CommandQueue,
 }
