@@ -44,21 +44,11 @@ impl From<TweenVec2> for Vec2 {
 }
 
 /// Controls tweening of turtle commands
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TweenController {
     queue: CommandQueue,
     current_tween: Option<CommandTween>,
     speed: AnimationSpeed,
-}
-
-impl Default for TweenController {
-    fn default() -> Self {
-        Self {
-            queue: CommandQueue::new(),
-            current_tween: None,
-            speed: AnimationSpeed::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -98,6 +88,7 @@ impl TweenController {
     /// Update the tween, returns `Vec` of (`command`, `start_state`, `end_state`) for all completed commands this frame
     /// Also takes commands vec to handle side effects like fill operations
     /// Each `command` has its own `start_state` and `end_state` pair
+    #[allow(clippy::too_many_lines)]
     pub fn update(state: &mut Turtle) -> Vec<(TurtleCommand, TurtleParams, TurtleParams)> {
         // In instant mode, execute commands up to the draw calls per frame limit
         if let AnimationSpeed::Instant(max_draw_calls) = state.tween_controller.speed {
@@ -106,12 +97,7 @@ impl TweenController {
             let mut draw_call_count = 0;
 
             // Consume commands from the real queue so the current_index advances
-            loop {
-                let command = match state.tween_controller.queue.next() {
-                    Some(cmd) => cmd,
-                    None => break,
-                };
-
+            while let Some(command) = state.tween_controller.queue.next() {
                 // Handle SetSpeed command to potentially switch modes
                 if let TurtleCommand::SetSpeed(new_speed) = &command {
                     state.params.speed = *new_speed;

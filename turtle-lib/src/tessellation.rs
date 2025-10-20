@@ -294,6 +294,7 @@ pub fn tessellate_circle(
 /// # Errors
 ///
 /// Returns an error if tessellation fails.
+#[allow(clippy::too_many_arguments)]
 pub fn tessellate_arc(
     center: Vec2,
     radius: f32,

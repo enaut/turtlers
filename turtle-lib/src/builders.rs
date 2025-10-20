@@ -268,7 +268,7 @@ impl TurtlePlan {
     ///
     /// Speed controls how fast the turtle moves during animations:
     /// - Values `>= 1000`: Instant mode - commands execute immediately without animation.
-    ///                    The bigger the number, the more segments are drawn per frame.
+    ///   The bigger the number, the more segments are drawn per frame.
     /// - Values `< 1000`: Animated mode - turtle moves at specified pixels per second
     ///
     /// You can dynamically switch between instant and animated modes during execution.

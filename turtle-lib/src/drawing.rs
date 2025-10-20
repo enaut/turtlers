@@ -93,7 +93,7 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     }
 
     // Draw in-progress tween lines for all active tweens
-    for turtle in world.turtles.iter() {
+    for turtle in &world.turtles {
         if let Some(tween) = turtle.tween_controller.current_tween() {
             // Only draw if pen is down
             if tween.start_params.pen_down {
@@ -132,7 +132,7 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     }
 
     // Draw live fill preview for all turtles that are currently filling
-    for turtle in world.turtles.iter() {
+    for turtle in &world.turtles {
         if let Some(ref fill_state) = turtle.filling {
             // Build all contours: completed contours + current contour with animation
             let mut all_contours: Vec<Vec<Vec2>> = Vec::new();

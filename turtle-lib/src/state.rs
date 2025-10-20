@@ -38,7 +38,7 @@ pub struct TurtleParams {
 }
 
 impl Default for TurtleParams {
-    /// Create TurtleParams from default values
+    /// Create `TurtleParams` from default values
     fn default() -> Self {
         Self {
             position: vec2(0.0, 0.0),
@@ -92,7 +92,7 @@ impl Turtle {
         Angle::radians(self.params.heading)
     }
 
-    /// Reset turtle to default state (preserves turtle_id and queued commands)
+    /// Reset turtle to default state (preserves `turtle_id` and queued commands)
     pub fn reset(&mut self) {
         // Clear all drawings
         self.commands.clear();
@@ -316,10 +316,10 @@ impl TurtleWorld {
     /// Add a new turtle and return its ID
     pub fn add_turtle(&mut self) -> usize {
         let turtle_id = self.turtles.len();
-        let mut new_turtle = Turtle::default();
-        new_turtle.turtle_id = turtle_id;
-        new_turtle.tween_controller =
-            TweenController::new(CommandQueue::new(), AnimationSpeed::default());
+        let new_turtle = Turtle {
+            turtle_id,
+            ..Default::default()
+        };
         self.turtles.push(new_turtle);
         turtle_id
     }

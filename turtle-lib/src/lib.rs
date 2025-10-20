@@ -118,7 +118,7 @@ impl TurtleApp {
     ///
     /// # Returns
     /// A `TurtleCommandSender` that can be cloned and sent to game logic threads.
-    /// The turtle is automatically managed by TurtleApp.
+    /// The turtle is automatically managed by `TurtleApp`.
     ///
     /// # Examples
     /// ```no_run
@@ -236,7 +236,7 @@ impl TurtleApp {
         }
     }
 
-    /// Append commands from a CommandQueue to a turtle's animation queue
+    /// Append commands from a `CommandQueue` to a turtle's animation queue
     ///
     /// Used internally by `process_commands()` and can be used directly
     /// when you have a `CommandQueue` instead of a `TurtlePlan`.
@@ -258,7 +258,7 @@ impl TurtleApp {
         self.handle_mouse_zoom();
 
         // Update all turtles' tween controllers
-        for turtle in self.world.turtles.iter_mut() {
+        for turtle in &mut self.world.turtles {
             // Extract draw_commands and controller temporarily to avoid borrow conflicts
 
             // Update the controller

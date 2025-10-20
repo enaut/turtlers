@@ -112,7 +112,7 @@ impl TurtleCommandSender {
     pub fn send(&self, queue: CommandQueue) -> Result<(), String> {
         self.tx
             .send(queue)
-            .map_err(|e| format!("Channel disconnected: {}", e))
+            .map_err(|e| format!("Channel disconnected: {e}"))
     }
 
     /// Send commands (non-blocking)
@@ -137,7 +137,7 @@ impl TurtleCommandSender {
     pub fn try_send(&self, queue: CommandQueue) -> Result<(), String> {
         self.tx
             .try_send(queue)
-            .map_err(|e| format!("Failed to send: {}", e))
+            .map_err(|e| format!("Failed to send: {e}"))
     }
 }
 
@@ -165,6 +165,7 @@ impl TurtleCommandReceiver {
     /// }
     /// # }
     /// ```
+    #[must_use]
     pub fn recv_all(&self) -> Vec<CommandQueue> {
         self.rx.try_iter().collect()
     }
@@ -192,14 +193,14 @@ impl TurtleCommandReceiver {
 ///
 /// The tuple represents (sender, receiver) where:
 /// - Sender goes to game logic threads (cloneable, can be distributed)
-/// - Receiver stays in the render thread (part of TurtleApp internally)
+/// - Receiver stays in the render thread (part of `TurtleApp` internally)
 ///
 /// # Arguments
 /// * `turtle_id` - The ID of the turtle this channel is for (must be valid)
 /// * `buffer_size` - Maximum number of pending command batches before sender blocks
 ///
 /// # Panics
-/// Panics if buffer_size is 0.
+/// Panics if `buffer_size` is 0.
 ///
 /// # Examples
 /// ```no_run
@@ -207,9 +208,10 @@ impl TurtleCommandReceiver {
 /// # fn example() {
 /// let (tx, _rx) = turtle_command_channel(0, 100);
 /// // Sender goes to game threads
-/// // Receiver stays in render thread (or TurtleApp)
+/// // Receiver stays in render thread (or `TurtleApp`)
 /// # }
 /// ```
+#[must_use]
 pub fn turtle_command_channel(
     turtle_id: usize,
     buffer_size: usize,

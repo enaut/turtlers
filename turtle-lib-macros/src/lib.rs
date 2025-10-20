@@ -32,7 +32,7 @@ use syn::{parse_macro_input, ItemFn};
 /// }
 /// ```
 ///
-/// If you need macroquad types not re-exported by turtle_lib:
+/// If you need macroquad types not re-exported by `turtle_lib`:
 ///
 /// ```ignore
 /// use macroquad::prelude::SKYBLUE;  // Import specific items

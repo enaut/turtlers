@@ -11,6 +11,7 @@ use crate::general::AnimationSpeed;
 
 /// Execute side effects for commands that don't involve movement
 /// Returns true if the command was handled (caller should skip movement processing)
+#[allow(clippy::too_many_lines)]
 pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle) -> bool {
     match command {
         TurtleCommand::BeginFill => {
