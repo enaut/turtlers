@@ -285,7 +285,8 @@ pub struct TurtleSource {
     pub pen_width: f32,
     pub start_position: Vec2,
     pub end_position: Vec2,
-    // ggf. weitere Metadaten
+    pub start_heading: f32,
+    pub contours: Option<Vec<Vec<crate::general::Coordinate>>>,
 }
 
 #[derive(Clone, Debug)]

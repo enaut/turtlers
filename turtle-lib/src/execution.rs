@@ -72,6 +72,8 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
                                 pen_width: state.params.pen_width,
                                 start_position: fill_state.start_position,
                                 end_position: fill_state.start_position,
+                                start_heading: state.params.heading,
+                                contours: Some(fill_state.contours.clone()),
                             },
                         });
                     } else {
@@ -133,6 +135,8 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
                     pen_width: state.params.pen_width,
                     start_position: state.params.position,
                     end_position: state.params.position,
+                    start_heading: state.params.heading,
+                    contours: None,
                 },
             });
             true
@@ -230,6 +234,8 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                             pen_width: state.params.pen_width,
                             start_position: start,
                             end_position: state.params.position,
+                            start_heading: state.params.heading,
+                            contours: None,
                         },
                     });
                 }
@@ -270,7 +276,9 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                             fill_color: state.params.fill_color.unwrap_or(BLACK),
                             pen_width: state.params.pen_width,
                             start_position: state.params.position,
-                            end_position: state.params.position,
+                            end_position: geom.position_at_angle(angle.to_radians()),
+                            start_heading: start_heading,
+                            contours: None,
                         },
                     });
                 }
@@ -306,6 +314,8 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                             pen_width: state.params.pen_width,
                             start_position: start,
                             end_position: state.params.position,
+                            start_heading: state.params.heading,
+                            contours: None,
                         },
                     });
                 }
@@ -371,6 +381,8 @@ pub fn add_draw_for_completed_tween(
                             pen_width: start_state.pen_width,
                             start_position: start_state.position,
                             end_position: end_state.position,
+                            start_heading: start_state.heading,
+                            contours: None,
                         },
                     });
                 }
@@ -408,6 +420,8 @@ pub fn add_draw_for_completed_tween(
                             pen_width: start_state.pen_width,
                             start_position: start_state.position,
                             end_position: end_state.position,
+                            start_heading: start_state.heading,
+                            contours: None,
                         },
                     });
                 }

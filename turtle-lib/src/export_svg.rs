@@ -4,7 +4,7 @@
 pub mod svg_export {
     use crate::commands::TurtleCommand;
     use crate::export::{DrawingExporter, ExportError};
-    use crate::state::{DrawCommand, TurtleSource, TurtleWorld};
+    use crate::state::{DrawCommand, TurtleWorld};
     use std::fs::File;
     use svg::{
         node::element::{Circle, Line, Polygon, Text as SvgText},
@@ -35,38 +35,107 @@ pub mod svg_export {
                                         .set("stroke-width", source.pen_width);
                                     doc = doc.add(line);
                                 }
-                                TurtleCommand::Circle { radius, .. } => {
-                                    // Kreis als <circle>
-                                    let center = source.start_position;
-                                    let circle = Circle::new()
-                                        .set("cx", center.x)
-                                        .set("cy", center.y)
-                                        .set("r", *radius)
-                                        .set("stroke", color_to_svg(source.color))
-                                        .set("stroke-width", source.pen_width)
-                                        .set("fill", "none");
-                                    doc = doc.add(circle);
+                                TurtleCommand::Circle {
+                                    radius,
+                                    angle,
+                                    direction,
+                                    ..
+                                } => {
+                                    use crate::circle_geometry::CircleGeometry;
+                                    let geom = CircleGeometry::new(
+                                        source.start_position,
+                                        source.start_heading,
+                                        *radius,
+                                        *direction,
+                                    );
+                                    let center = geom.center;
+                                    if (*angle - 360.0).abs() < 1e-3 {
+                                        // Voller Kreis
+                                        let circle = Circle::new()
+                                            .set("cx", center.x)
+                                            .set("cy", center.y)
+                                            .set("r", *radius)
+                                            .set("stroke", color_to_svg(source.color))
+                                            .set("stroke-width", source.pen_width)
+                                            .set("fill", "none");
+                                        doc = doc.add(circle);
+                                    } else {
+                                        // Kreisbogen als <path>
+                                        let start = source.start_position;
+                                        let end = source.end_position;
+                                        let large_arc = if *angle > 180.0 { 1 } else { 0 };
+                                        let sweep = match direction {
+                                            crate::circle_geometry::CircleDirection::Left => 0,
+                                            crate::circle_geometry::CircleDirection::Right => 1,
+                                        };
+                                        let d = format!(
+                                            "M {} {} A {} {} 0 {} {} {} {}",
+                                            start.x,
+                                            start.y,
+                                            radius,
+                                            radius,
+                                            large_arc,
+                                            sweep,
+                                            end.x,
+                                            end.y
+                                        );
+                                        let path = svg::node::element::Path::new()
+                                            .set("d", d)
+                                            .set("stroke", color_to_svg(source.color))
+                                            .set("stroke-width", source.pen_width)
+                                            .set("fill", "none");
+                                        doc = doc.add(path);
+                                    }
                                 }
                                 TurtleCommand::EndFill => {
-                                    // Fills werden als Polygon ausgegeben
-                                    // (Vereinfachung: Startposition als Dummy, echte Konturen müssten separat gespeichert werden)
-                                    // Hier nur ein Dummy-Polygon
-                                    let poly = Polygon::new()
-                                        .set(
-                                            "points",
-                                            format!(
-                                                "{},{} {},{} {},{}",
-                                                source.start_position.x,
-                                                source.start_position.y,
-                                                source.start_position.x + 10.0,
-                                                source.start_position.y + 10.0,
-                                                source.start_position.x + 5.0,
-                                                source.start_position.y + 15.0
-                                            ),
-                                        )
-                                        .set("fill", color_to_svg(source.fill_color))
-                                        .set("stroke", color_to_svg(source.color));
-                                    doc = doc.add(poly);
+                                    // Fills werden als <path> mit Konturen ausgegeben
+                                    if let Some(contours) = &source.contours {
+                                        let mut d = String::new();
+                                        for (i, contour) in contours.iter().enumerate() {
+                                            if !contour.is_empty() {
+                                                if i > 0 {
+                                                    d.push(' ');
+                                                }
+                                                d.push_str(&format!(
+                                                    "M {} {}",
+                                                    contour[0].x, contour[0].y
+                                                ));
+                                                for point in contour.iter().skip(1) {
+                                                    d.push_str(&format!(
+                                                        " L {} {}",
+                                                        point.x, point.y
+                                                    ));
+                                                }
+                                                d.push_str(" Z");
+                                            }
+                                        }
+                                        if !d.is_empty() {
+                                            let path = svg::node::element::Path::new()
+                                                .set("d", d)
+                                                .set("fill", color_to_svg(source.fill_color))
+                                                .set("fill-rule", "evenodd")
+                                                .set("stroke", color_to_svg(source.color));
+                                            doc = doc.add(path);
+                                        }
+                                    } else {
+                                        // Fallback: Dummy-Polygon
+                                        let poly = Polygon::new()
+                                            .set(
+                                                "points",
+                                                format!(
+                                                    "{},{} {},{} {},{}",
+                                                    source.start_position.x,
+                                                    source.start_position.y,
+                                                    source.start_position.x + 10.0,
+                                                    source.start_position.y + 10.0,
+                                                    source.start_position.x + 5.0,
+                                                    source.start_position.y + 15.0
+                                                ),
+                                            )
+                                            .set("fill", color_to_svg(source.fill_color))
+                                            .set("stroke", color_to_svg(source.color));
+                                        doc = doc.add(poly);
+                                    }
                                 }
                                 _ => {}
                             }
