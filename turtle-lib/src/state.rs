@@ -278,9 +278,23 @@ impl MeshData {
 /// Drawable elements in the world
 /// All drawing is done via Lyon-tessellated meshes for consistency and quality
 #[derive(Clone, Debug)]
+pub struct TurtleSource {
+    pub command: crate::commands::TurtleCommand,
+    pub color: Color,
+    pub fill_color: Color,
+    pub pen_width: f32,
+    pub start_position: Vec2,
+    pub end_position: Vec2,
+    // ggf. weitere Metadaten
+}
+
+#[derive(Clone, Debug)]
 pub enum DrawCommand {
     /// Pre-tessellated mesh data (lines, arcs, circles, polygons - all use this)
-    Mesh { data: MeshData },
+    Mesh {
+        data: MeshData,
+        source: TurtleSource,
+    },
     /// Text rendering command
     Text {
         text: String,
@@ -288,6 +302,7 @@ pub enum DrawCommand {
         heading: f32,
         font_size: crate::general::FontSize,
         color: Color,
+        source: TurtleSource,
     },
 }
 

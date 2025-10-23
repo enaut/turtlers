@@ -67,6 +67,10 @@ pub use shapes::{ShapeType, TurtleShape};
 pub use state::{DrawCommand, Turtle, TurtleWorld};
 pub use tweening::TweenController;
 
+pub mod export;
+#[cfg(feature = "svg")]
+pub mod export_svg;
+
 // Re-export the turtle_main macro
 pub use turtle_lib_macros::turtle_main;
 
@@ -91,6 +95,28 @@ pub struct TurtleApp {
 }
 
 impl TurtleApp {
+    /// Exportiere das aktuelle Drawing in das gewünschte Format
+    #[allow(unused_variables)]
+    pub fn export_drawing(
+        &self,
+        filename: &str,
+        format: export::DrawingFormat,
+    ) -> Result<(), export::ExportError> {
+        match format {
+            #[cfg(feature = "svg")]
+            export::DrawingFormat::Svg => {
+                use crate::export::DrawingExporter;
+                use export_svg::svg_export::SvgExporter;
+                let exporter = SvgExporter;
+                exporter.export(&self.world, filename)
+            }
+            // Weitere Formate können hier ergänzt werden
+            #[allow(unreachable_patterns)]
+            _ => Err(export::ExportError::Format(
+                "Export-Format nicht unterstützt".to_string(),
+            )),
+        }
+    }
     /// Create a new `TurtleApp` with default settings
     #[must_use]
     pub fn new() -> Self {

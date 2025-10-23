@@ -63,7 +63,17 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
                             contours = fill_state.contours.len(),
                             "Successfully created fill mesh - persisting to commands"
                         );
-                        state.commands.push(DrawCommand::Mesh { data: mesh_data });
+                        state.commands.push(DrawCommand::Mesh {
+                            data: mesh_data,
+                            source: crate::state::TurtleSource {
+                                command: crate::commands::TurtleCommand::EndFill,
+                                color: state.params.color,
+                                fill_color: fill_state.fill_color,
+                                pen_width: state.params.pen_width,
+                                start_position: fill_state.start_position,
+                                end_position: fill_state.start_position,
+                            },
+                        });
                     } else {
                         tracing::error!(
                             turtle_id = state.turtle_id,
@@ -116,6 +126,14 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
                 heading: state.params.heading,
                 font_size: *font_size,
                 color: state.params.color,
+                source: crate::state::TurtleSource {
+                    command: command.clone(),
+                    color: state.params.color,
+                    fill_color: state.params.fill_color.unwrap_or(BLACK),
+                    pen_width: state.params.pen_width,
+                    start_position: state.params.position,
+                    end_position: state.params.position,
+                },
             });
             true
         }
@@ -203,7 +221,17 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                     state.params.pen_width,
                     false, // not closed
                 ) {
-                    state.commands.push(DrawCommand::Mesh { data: mesh_data });
+                    state.commands.push(DrawCommand::Mesh {
+                        data: mesh_data,
+                        source: crate::state::TurtleSource {
+                            command: command.clone(),
+                            color: state.params.color,
+                            fill_color: state.params.fill_color.unwrap_or(BLACK),
+                            pen_width: state.params.pen_width,
+                            start_position: start,
+                            end_position: state.params.position,
+                        },
+                    });
                 }
             }
         }
@@ -234,7 +262,17 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                     *steps,
                     *direction,
                 ) {
-                    state.commands.push(DrawCommand::Mesh { data: mesh_data });
+                    state.commands.push(DrawCommand::Mesh {
+                        data: mesh_data,
+                        source: crate::state::TurtleSource {
+                            command: command.clone(),
+                            color: state.params.color,
+                            fill_color: state.params.fill_color.unwrap_or(BLACK),
+                            pen_width: state.params.pen_width,
+                            start_position: state.params.position,
+                            end_position: state.params.position,
+                        },
+                    });
                 }
             }
 
@@ -259,7 +297,17 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                     state.params.pen_width,
                     false, // not closed
                 ) {
-                    state.commands.push(DrawCommand::Mesh { data: mesh_data });
+                    state.commands.push(DrawCommand::Mesh {
+                        data: mesh_data,
+                        source: crate::state::TurtleSource {
+                            command: command.clone(),
+                            color: state.params.color,
+                            fill_color: state.params.fill_color.unwrap_or(BLACK),
+                            pen_width: state.params.pen_width,
+                            start_position: start,
+                            end_position: state.params.position,
+                        },
+                    });
                 }
             }
         }
@@ -314,7 +362,17 @@ pub fn add_draw_for_completed_tween(
                     start_state.pen_width,
                     false,
                 ) {
-                    return Some(DrawCommand::Mesh { data: mesh_data });
+                    return Some(DrawCommand::Mesh {
+                        data: mesh_data,
+                        source: crate::state::TurtleSource {
+                            command: command.clone(),
+                            color: start_state.color,
+                            fill_color: start_state.fill_color.unwrap_or(BLACK),
+                            pen_width: start_state.pen_width,
+                            start_position: start_state.position,
+                            end_position: end_state.position,
+                        },
+                    });
                 }
             }
         }
@@ -341,7 +399,17 @@ pub fn add_draw_for_completed_tween(
                     *steps,
                     *direction,
                 ) {
-                    return Some(DrawCommand::Mesh { data: mesh_data });
+                    return Some(DrawCommand::Mesh {
+                        data: mesh_data,
+                        source: crate::state::TurtleSource {
+                            command: command.clone(),
+                            color: start_state.color,
+                            fill_color: start_state.fill_color.unwrap_or(BLACK),
+                            pen_width: start_state.pen_width,
+                            start_position: start_state.position,
+                            end_position: end_state.position,
+                        },
+                    });
                 }
             }
         }

@@ -2,8 +2,8 @@
 //!
 //! Ported from the turtle crate example.
 
-use turtle_lib::*;
 use macroquad::prelude::rand;
+use turtle_lib::*;
 
 // Parameters to play around with for changing the character of the drawing
 const WIDTH: f32 = 800.0;
