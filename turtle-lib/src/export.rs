@@ -9,6 +9,7 @@ pub enum ExportError {
     // Weitere Formate können ergänzt werden
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum DrawingFormat {
     #[cfg(feature = "svg")]
     Svg,
@@ -16,5 +17,10 @@ pub enum DrawingFormat {
 }
 
 pub trait DrawingExporter {
+    /// Export the drawing to the specified format and filename
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the export fails (e.g., file I/O error)
     fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError>;
 }

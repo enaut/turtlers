@@ -199,6 +199,7 @@ pub fn record_fill_vertices_after_movement(
 
 /// Execute a single turtle command, updating state and adding draw commands
 #[tracing::instrument]
+#[allow(clippy::too_many_lines)]
 pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
     // Try to execute as side-effect-only command first
     if execute_command_side_effects(command, state) {
@@ -277,7 +278,7 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
                             pen_width: state.params.pen_width,
                             start_position: state.params.position,
                             end_position: geom.position_at_angle(angle.to_radians()),
-                            start_heading: start_heading,
+                            start_heading,
                             contours: None,
                         },
                     });

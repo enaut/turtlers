@@ -97,6 +97,11 @@ pub struct TurtleApp {
 impl TurtleApp {
     /// Exportiere das aktuelle Drawing in das gewünschte Format
     #[allow(unused_variables)]
+    /// Export the current drawing to a file in the specified format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the export fails (e.g., unsupported format, file I/O error)
     pub fn export_drawing(
         &self,
         filename: &str,
