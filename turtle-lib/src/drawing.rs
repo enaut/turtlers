@@ -28,7 +28,7 @@ pub fn render_world(world: &TurtleWorld) {
     for turtle in &world.turtles {
         for cmd in &turtle.commands {
             match cmd {
-                DrawCommand::Mesh { data, source } => {
+                DrawCommand::Mesh { data, source: _ } => {
                     // Rendering wie bisher
                     draw_mesh(&data.to_mesh());
                     // Hier könnte man das source für Debug/Export loggen
@@ -39,7 +39,7 @@ pub fn render_world(world: &TurtleWorld) {
                     heading,
                     font_size,
                     color,
-                    source,
+                    source: _,
                 } => {
                     draw_text_command(text, *position, *heading, *font_size, *color);
                     // Hier könnte man das source für Debug/Export loggen
@@ -80,7 +80,7 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     for turtle in &world.turtles {
         for cmd in &turtle.commands {
             match cmd {
-                DrawCommand::Mesh { data, source } => {
+                DrawCommand::Mesh { data, source: _ } => {
                     draw_mesh(&data.to_mesh());
                 }
                 DrawCommand::Text {
@@ -89,7 +89,7 @@ pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                     heading,
                     font_size,
                     color,
-                    source,
+                    source: _,
                 } => {
                     draw_text_command(text, *position, *heading, *font_size, *color);
                 }

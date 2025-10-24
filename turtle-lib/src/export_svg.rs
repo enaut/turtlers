@@ -5,7 +5,6 @@ pub mod svg_export {
     use crate::commands::TurtleCommand;
     use crate::export::{DrawingExporter, ExportError};
     use crate::state::{DrawCommand, TurtleWorld};
-    use macroquad::prelude::Vec2;
     use std::fs::File;
     use svg::{
         node::element::{Circle, Line, Polygon, Text as SvgText},
