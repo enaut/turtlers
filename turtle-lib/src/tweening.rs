@@ -330,7 +330,12 @@ impl TweenController {
         current: &Turtle,
         speed: AnimationSpeed,
     ) -> f64 {
-        let speed = speed.value();
+        let mut speed = speed.value();
+
+        // For high speeds, make animation even faster by scaling speed exponentially
+        if speed > 100.0 {
+            speed *= speed / 100.0;
+        }
 
         let base_time = match command {
             TurtleCommand::Move(dist) => dist.abs() / speed,
