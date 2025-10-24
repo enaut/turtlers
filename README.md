@@ -17,8 +17,31 @@ A modern turtle graphics library for Rust built on [Macroquad](https://macroquad
 - 🐢 **Multiple Turtle Shapes**: Triangle, classic turtle, circle, square, arrow, and custom shapes
 - 🔍 **Structured Logging**: Optional `tracing` integration for debugging (zero overhead when disabled)
 - 💨 **Lightweight**: Fast compilation and runtime
+- 📤 **SVG Export**: Export drawings to SVG format with viewBox and padding (feature-gated)
 
 ## Quick Start
+
+The simplest example to draw a square:
+
+```rust
+//! Minimal turtle example - just 10 lines!
+//!
+//! This is the simplest possible turtle program using the macro.
+
+use turtle_lib::*;
+
+#[turtle_main]
+fn hello() {
+    turtle.set_pen_color(BLUE);
+    for _ in 0..4 {
+        turtle.forward(100.0);
+        turtle.right(90.0);
+    }
+}
+```
+The turtle starts at the center of the window, facing right (0 degrees). The above code draws a blue square.
+
+The `turtle_main` macro sets up the Macroquad window, turtle initialization, and main loop for you. It expands to code similar to this:
 
 ```rust
 use macroquad::prelude::*;
@@ -108,7 +131,7 @@ plan.forward(100).right(90).forward(50);
 
 ### Execution Modes
 
-Speed is now controlled via commands, allowing dynamic switching during execution:
+Speed controlled via commands, allowing dynamic switching during execution:
 
 ```rust
 let mut plan = create_turtle();
@@ -124,31 +147,14 @@ plan.pen_down();
 plan.forward(200);
 plan.right(90);
 
-// Create app (no speed parameter needed)
+// Create app
 let app = TurtleApp::new().with_commands(plan.build());
 ```
 
 **Speed Modes:**
 - **Speed < 999**: Animated mode with smooth tweening
-- **Speed >= 999**: Instant mode (no animation)
+- **Speed >= 999**: Instant mode (no animation) the bigger the number the more segments will be added per frame.
 - Default speed is 100.0 if not specified
-
-### Animation Loop
-
-```rust
-loop {
-    clear_background(WHITE);
-    
-    app.update();  // Update animation state
-    app.render();  // Draw to screen
-    
-    if app.is_complete() {
-        // All commands executed
-    }
-    
-    next_frame().await
-}
-```
 
 ## Debugging and Logging
 
@@ -177,6 +183,48 @@ RUST_LOG=turtle_lib=trace cargo run
 
 **See the complete example**: [`examples/logging_example.rs`](turtle-lib/examples/logging_example.rs) demonstrates initialization, log levels, filtering, and example output.
 
+## SVG Export
+
+Export your turtle drawings to SVG format for use in web applications, vector graphics editors, or further processing.
+
+### Enabling SVG Export
+
+Add the `svg` feature to enable SVG export functionality:
+
+```bash
+cargo run --example export_svg --features svg
+```
+
+### Usage
+
+```rust
+use turtle_lib::*;
+
+// Create your drawing
+let mut plan = create_turtle();
+plan.forward(100).right(90).forward(100);
+
+// Create app
+let mut app = TurtleApp::new().with_commands(plan.build());
+
+// Export to SVG
+app.export_drawing("drawing.svg", export::DrawingFormat::Svg)?;
+```
+
+### Features
+
+- **Complete Primitive Support**: Lines, circles, arcs, polygons, and fills
+- **Automatic viewBox**: Includes 20px padding around the entire drawing
+- **Color and Styling**: Preserves colors, pen width, and fill colors
+- **Multi-Contour Fills**: Exports complex fills with holes using SVG paths
+- **Text Support**: Exports text elements with positioning
+
+### Example
+
+See [`examples/export_svg.rs`](turtle-lib/examples/export_svg.rs) for a complete example that draws various shapes and exports them to SVG.
+
+The exported SVG can be opened in any web browser or vector graphics application.
+
 ## Examples
 
 Run examples with:
@@ -187,6 +235,9 @@ cargo run --example shapes
 cargo run --example yinyang
 cargo run --example stern
 cargo run --example nikolaus
+
+# SVG export example (requires --features svg)
+cargo run --example export_svg --features svg
 
 # Logging example - shows how to enable debug output
 cargo run --example logging_example
@@ -210,15 +261,18 @@ RUST_LOG=turtle_lib=debug cargo run --example logging_example
 - **fill_circle_test.rs**: Circle fills with different angles
 - **fill_instant_test.rs**: Quick fill test in instant mode
 
+#### Export
+- **export_svg.rs**: Demonstrates SVG export functionality (requires `--features svg`)
+
 #### Debugging
 - **logging_example.rs**: Demonstrates how to enable and use tracing/logging output
 
 ## Why Lyon?
 
 - Automatic hole detection via EvenOdd fill rule
+- Handles any self-intersecting path
 - GPU-accelerated rendering
 - Standards-compliant (matches SVG, HTML Canvas)
-- Handles any self-intersecting path
 
 ### Basic Fill
 ```rust
@@ -283,15 +337,6 @@ turtle-lib/src/
 └── general/        - Type definitions (Angle, Length, etc.)
 ```
 
-### Design Principles
-
-- **State Management**: Clean separation between turtle state and world state
-- **Command Queue**: Commands queued and executed with optional tweening
-- **Consolidated Commands**: Unified commands reduce duplication (Move, Turn, Circle)
-- **Dynamic Speed Control**: Speed managed via SetSpeed commands for flexibility
-- **Tweening System**: Smooth interpolation with easing functions
-- **Unified Lyon Rendering**: All drawing operations use GPU-accelerated Lyon tessellation
-
 ## Workspace Structure
 
 ```
@@ -309,8 +354,14 @@ cargo check
 # Run specific example
 cargo run --example yinyang
 
+# Run SVG export example (requires svg feature)
+cargo run --example export_svg --features svg
+
 # Build release version
 cargo build --release
+
+# Build with SVG support
+cargo build --features svg
 ```
 
 ## Development Status
@@ -329,7 +380,8 @@ cargo build --release
 - **EvenOdd fill rule** for complex self-intersecting paths
 - **Live fill preview** during animation with progressive rendering
 - **Multi-contour support** - pen_up/pen_down manage contours
-- **Command consolidation** 
+- **Command consolidation**
+- **SVG Export** - Export drawings to SVG with viewBox and padding (feature-gated) 
 
 ## What's New
 
