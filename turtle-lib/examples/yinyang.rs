@@ -4,24 +4,24 @@ use turtle_lib::*;
 
 #[turtle_main("Yin-Yang")]
 fn draw(turtle: &mut TurtlePlan) {
-    turtle.set_speed(100);
-
-    turtle.circle_left(90.0, 180.0, 36);
-    turtle.begin_fill();
-    turtle.circle_left(90.0, 180.0, 36);
-    turtle.circle_left(45.0, 180.0, 26);
-    turtle.circle_right(45.0, 180.0, 26);
-    turtle.pen_up();
-    turtle.right(90.0);
-    turtle.forward(37.0);
-    turtle.left(90.0);
-    turtle.pen_down();
-    turtle.circle_right(8.0, 360.0, 12);
-    turtle.pen_up();
-    turtle.right(90.0);
-    turtle.forward(90.0);
-    turtle.left(90.0);
-    turtle.pen_down();
-    turtle.circle_right(8.0, 360.0, 12);
-    turtle.end_fill();
+    turtle
+        .set_speed(100)
+        .circle_left(90.0, 180.0, 36)
+        .begin_fill()
+        .circle_left(90.0, 180.0, 36)
+        .circle_left(45.0, 180.0, 26)
+        .circle_right(45.0, 180.0, 26)
+        .pen_up()
+        .right(90.0)
+        .forward(37.0)
+        .left(90.0)
+        .pen_down()
+        .circle_right(8.0, 360.0, 12)
+        .pen_up()
+        .right(90.0)
+        .forward(90.0)
+        .left(90.0)
+        .pen_down()
+        .circle_right(8.0, 360.0, 12)
+        .end_fill();
 }
