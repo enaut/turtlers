@@ -10,6 +10,7 @@ async fn main() {
         .right(90.0)
         .forward(100.0)
         .set_pen_color(macroquad::color::GRAY)
+        .set_pen_width(8.0)
         .circle_right(50.0, 90.0, 4)
         .begin_fill()
         .forward(100.0)
