@@ -16,6 +16,14 @@ use syn::{parse_macro_input, ItemFn};
 /// - Creates a turtle instance (`turtle`)
 /// - Sets up the `TurtleApp` with your drawing commands
 /// - Provides a main loop with rendering and quit handling (ESC or Q)
+/// - Adds command-line parameter support for SVG export (when `svg` feature is enabled)
+///
+/// # Command-Line Parameters
+///
+/// When the `svg` feature is enabled, the following command-line parameter is available:
+///
+/// * `--export-svg <filename>` - Exports the drawing to an SVG file and exits immediately
+///   without opening the window. Example: `cargo run --features svg -- --export-svg output.svg`
 ///
 /// # Example
 ///
@@ -45,6 +53,13 @@ use syn::{parse_macro_input, ItemFn};
 /// }
 /// ```
 ///
+/// # SVG Export Example
+///
+/// ```bash
+/// # Run with SVG export (requires svg feature)
+/// cargo run --package turtle-lib --example macro_demo --features svg -- --export-svg output.svg
+/// ```
+///
 /// This expands to approximately:
 ///
 /// ```ignore
@@ -53,6 +68,10 @@ use syn::{parse_macro_input, ItemFn};
 ///
 /// #[macroquad::main("My Turtle Drawing")]
 /// async fn main() {
+///     // Parse CLI args for --export-svg flag
+///     let args: Vec<String> = std::env::args().collect();
+///     // ... (argument parsing logic)
+///     
 ///     let mut turtle = create_turtle_plan();
 ///     
 ///     // Your drawing code here
@@ -63,6 +82,8 @@ use syn::{parse_macro_input, ItemFn};
 ///
 ///     let mut app = TurtleApp::new().with_commands(turtle.build());
 ///
+///     // If --export-svg flag is present, export and exit
+///     // Otherwise, enter normal rendering loop
 ///     loop {
 ///         clear_background(WHITE);
 ///         app.update();
@@ -102,6 +123,19 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
+                // Parse command-line arguments for SVG export
+                let args: Vec<String> = std::env::args().collect();
+                let mut export_svg_path: Option<String> = None;
+                
+                let mut i = 1;
+                while i < args.len() {
+                    if args[i] == "--export-svg" && i + 1 < args.len() {
+                        export_svg_path = Some(args[i + 1].clone());
+                        break;
+                    }
+                    i += 1;
+                }
+
                 let mut turtle = turtle_lib::create_turtle_plan();
 
                 // Call the user's function with the turtle
@@ -110,6 +144,39 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 let mut app = turtle_lib::TurtleApp::new()
                     .with_commands(turtle.build());
 
+                // Handle SVG export if requested
+                if let Some(filename) = export_svg_path {
+                    #[cfg(feature = "svg")]
+                    {
+                        // Set instant speed to execute all commands immediately
+                        app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
+                        
+                        // Execute all commands instantly
+                        while !app.all_animations_complete() {
+                            app.update();
+                        }
+                        
+                        // Export to SVG
+                        match app.export_drawing(&filename, turtle_lib::export::DrawingFormat::Svg) {
+                            Ok(_) => {
+                                println!("SVG exported successfully to: {}", filename);
+                                std::process::exit(0);
+                            }
+                            Err(e) => {
+                                eprintln!("Error exporting SVG: {:?}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    #[cfg(not(feature = "svg"))]
+                    {
+                        eprintln!("Error: SVG export feature is not enabled.");
+                        eprintln!("Please rebuild with --features svg");
+                        std::process::exit(1);
+                    }
+                }
+
+                // Normal rendering loop
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
                     app.update();
@@ -139,6 +206,19 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
+                // Parse command-line arguments for SVG export
+                let args: Vec<String> = std::env::args().collect();
+                let mut export_svg_path: Option<String> = None;
+                
+                let mut i = 1;
+                while i < args.len() {
+                    if args[i] == "--export-svg" && i + 1 < args.len() {
+                        export_svg_path = Some(args[i + 1].clone());
+                        break;
+                    }
+                    i += 1;
+                }
+
                 let mut turtle = turtle_lib::create_turtle_plan();
 
                 // Inline the user's code
@@ -147,6 +227,39 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                 let mut app = turtle_lib::TurtleApp::new()
                     .with_commands(turtle.build());
 
+                // Handle SVG export if requested
+                if let Some(filename) = export_svg_path {
+                    #[cfg(feature = "svg")]
+                    {
+                        // Set instant speed to execute all commands immediately
+                        app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
+                        
+                        // Execute all commands instantly
+                        while !app.all_animations_complete() {
+                            app.update();
+                        }
+                        
+                        // Export to SVG
+                        match app.export_drawing(&filename, turtle_lib::export::DrawingFormat::Svg) {
+                            Ok(_) => {
+                                println!("SVG exported successfully to: {}", filename);
+                                std::process::exit(0);
+                            }
+                            Err(e) => {
+                                eprintln!("Error exporting SVG: {:?}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    #[cfg(not(feature = "svg"))]
+                    {
+                        eprintln!("Error: SVG export feature is not enabled.");
+                        eprintln!("Please rebuild with --features svg");
+                        std::process::exit(1);
+                    }
+                }
+
+                // Normal rendering loop
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
                     app.update();
