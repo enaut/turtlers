@@ -118,6 +118,11 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
     // Check if the function has the expected signature
     let has_turtle_param = input_fn.sig.inputs.len() == 1;
 
+    // Note: The following code has some duplication between the two branches
+    // (with/without turtle parameter). This is intentional in proc macros as
+    // we're generating different code paths, and extracting the common parts
+    // into helper functions would make the macro more complex without significant benefit.
+
     let expanded = if has_turtle_param {
         // Function takes a turtle parameter
         quote! {
