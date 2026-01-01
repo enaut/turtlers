@@ -148,6 +148,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                             .with_commands(turtle.build());
                         
                         // Set instant speed to execute all commands immediately
+                        // Use a high draw call limit (1000) to ensure all commands execute in one frame
                         app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
                         
                         // Execute all commands instantly (no rendering needed)
@@ -238,6 +239,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                             .with_commands(turtle.build());
                         
                         // Set instant speed to execute all commands immediately
+                        // Use a high draw call limit (1000) to ensure all commands execute in one frame
                         app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
                         
                         // Execute all commands instantly (no rendering needed)
