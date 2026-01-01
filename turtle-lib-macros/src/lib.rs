@@ -123,7 +123,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                // Parse command-line arguments for SVG export
+                // Parse command-line arguments for SVG export FIRST (before any graphics init)
                 let args: Vec<String> = std::env::args().collect();
                 let mut export_svg_path: Option<String> = None;
                 
@@ -136,22 +136,21 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                     i += 1;
                 }
 
-                let mut turtle = turtle_lib::create_turtle_plan();
-
-                // Call the user's function with the turtle
-                #fn_name(&mut turtle);
-
-                let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
-
-                // Handle SVG export if requested
+                // Handle SVG export mode (execute instantly without rendering)
                 if let Some(filename) = export_svg_path {
                     #[cfg(feature = "svg")]
                     {
+                        let mut turtle = turtle_lib::create_turtle_plan();
+                        #fn_name(&mut turtle);
+
+                        // Create app and execute instantly
+                        let mut app = turtle_lib::TurtleApp::new()
+                            .with_commands(turtle.build());
+                        
                         // Set instant speed to execute all commands immediately
                         app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
                         
-                        // Execute all commands instantly
+                        // Execute all commands instantly (no rendering needed)
                         while !app.all_animations_complete() {
                             app.update();
                         }
@@ -176,7 +175,15 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
 
-                // Normal rendering loop
+                // Normal rendering mode (with window)
+                let mut turtle = turtle_lib::create_turtle_plan();
+
+                // Call the user's function with the turtle
+                #fn_name(&mut turtle);
+
+                let mut app = turtle_lib::TurtleApp::new()
+                    .with_commands(turtle.build());
+
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
                     app.update();
@@ -206,7 +213,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                // Parse command-line arguments for SVG export
+                // Parse command-line arguments for SVG export FIRST (before any graphics init)
                 let args: Vec<String> = std::env::args().collect();
                 let mut export_svg_path: Option<String> = None;
                 
@@ -219,22 +226,21 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                     i += 1;
                 }
 
-                let mut turtle = turtle_lib::create_turtle_plan();
-
-                // Inline the user's code
-                #fn_block
-
-                let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
-
-                // Handle SVG export if requested
+                // Handle SVG export mode (execute instantly without rendering)
                 if let Some(filename) = export_svg_path {
                     #[cfg(feature = "svg")]
                     {
+                        let mut turtle = turtle_lib::create_turtle_plan();
+                        #fn_block
+
+                        // Create app and execute instantly
+                        let mut app = turtle_lib::TurtleApp::new()
+                            .with_commands(turtle.build());
+                        
                         // Set instant speed to execute all commands immediately
                         app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
                         
-                        // Execute all commands instantly
+                        // Execute all commands instantly (no rendering needed)
                         while !app.all_animations_complete() {
                             app.update();
                         }
@@ -259,7 +265,13 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
 
-                // Normal rendering loop
+                // Normal rendering mode (with window)
+                let mut turtle = turtle_lib::create_turtle_plan();
+                #fn_block
+
+                let mut app = turtle_lib::TurtleApp::new()
+                    .with_commands(turtle.build());
+
                 loop {
                     macroquad::prelude::clear_background(macroquad::prelude::WHITE);
                     app.update();
