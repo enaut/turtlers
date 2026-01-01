@@ -195,7 +195,32 @@ Add the `svg` feature to enable SVG export functionality:
 cargo run --example export_svg --features svg
 ```
 
-### Usage
+### Command-Line SVG Export
+
+When using the `turtle_main` macro with the `svg` feature enabled, you can export drawings directly to SVG files using the `--export-svg` command-line parameter:
+
+```bash
+# Export any example to SVG without showing the window
+cargo run --example macro_demo --features svg -- --export-svg output.svg
+
+# Works with all turtle_main-based examples
+cargo run --example hello_turtle --features svg -- --export-svg square.svg
+```
+
+This will:
+- Execute all drawing commands instantly (no animation)
+- Export the result to an SVG file
+- Exit immediately without opening a window
+
+**Note**: The program still requires a display context to initialize. In headless environments, use `xvfb-run`:
+
+```bash
+xvfb-run -a cargo run --example macro_demo --features svg -- --export-svg output.svg
+```
+
+### Programmatic SVG Export
+
+You can also export SVG programmatically from your code:
 
 ```rust
 use turtle_lib::*;
@@ -238,6 +263,10 @@ cargo run --example nikolaus
 
 # SVG export example (requires --features svg)
 cargo run --example export_svg --features svg
+
+# Export any example to SVG using CLI parameter (requires --features svg)
+cargo run --example macro_demo --features svg -- --export-svg output.svg
+cargo run --example hello_turtle --features svg -- --export-svg square.svg
 
 # Logging example - shows how to enable debug output
 cargo run --example logging_example
