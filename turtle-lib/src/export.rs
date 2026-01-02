@@ -24,3 +24,15 @@ pub trait DrawingExporter {
     /// Returns an error if the export fails (e.g., file I/O error)
     fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError>;
 }
+
+pub fn parse_svg_export_arg() -> Option<String> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--export-svg" && i + 1 < args.len() {
+            return Some(args[i + 1].clone());
+        }
+        i += 1;
+    }
+    None
+}

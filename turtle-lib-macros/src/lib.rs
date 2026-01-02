@@ -129,17 +129,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
             #[macroquad::main(#window_title)]
             async fn main() {
                 // Parse command-line arguments for SVG export FIRST (before any graphics init)
-                let args: Vec<String> = std::env::args().collect();
-                let mut export_svg_path: Option<String> = None;
-                
-                let mut i = 1;
-                while i < args.len() {
-                    if args[i] == "--export-svg" && i + 1 < args.len() {
-                        export_svg_path = Some(args[i + 1].clone());
-                        break;
-                    }
-                    i += 1;
-                }
+                let export_svg_path = turtle_lib::export::parse_svg_export_arg();
 
                 // Handle SVG export mode (execute instantly without rendering)
                 if let Some(filename) = export_svg_path {
@@ -220,17 +210,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
             #[macroquad::main(#window_title)]
             async fn main() {
                 // Parse command-line arguments for SVG export FIRST (before any graphics init)
-                let args: Vec<String> = std::env::args().collect();
-                let mut export_svg_path: Option<String> = None;
-                
-                let mut i = 1;
-                while i < args.len() {
-                    if args[i] == "--export-svg" && i + 1 < args.len() {
-                        export_svg_path = Some(args[i + 1].clone());
-                        break;
-                    }
-                    i += 1;
-                }
+                let export_svg_path = turtle_lib::export::parse_svg_export_arg();
 
                 // Handle SVG export mode (execute instantly without rendering)
                 if let Some(filename) = export_svg_path {
