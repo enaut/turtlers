@@ -367,6 +367,23 @@ impl TurtleApp {
             .all(|turtle| turtle.tween_controller.is_complete())
     }
 
+    /// Check if all animations are complete (alias for is_complete)
+    #[must_use]
+    pub fn all_animations_complete(&self) -> bool {
+        self.is_complete()
+    }
+
+    /// Set the animation speed for all turtles
+    ///
+    /// # Arguments
+    /// * `speed` - The animation speed to set for all turtles
+    pub fn set_all_turtles_speed(&mut self, speed: AnimationSpeed) {
+        for turtle in &mut self.world.turtles {
+            turtle.set_speed(speed);
+            turtle.tween_controller.set_speed(speed);
+        }
+    }
+
     /// Get reference to the world state
     #[must_use]
     pub fn world(&self) -> &TurtleWorld {

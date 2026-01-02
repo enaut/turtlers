@@ -80,10 +80,10 @@ fn draw(turtle: &mut TurtlePlan) {
 
     // Draw and label 4 points (one per quadrant)
     let points = vec![
-        (vec2(120.0, 100.0), "A(2|1)"),
-        (vec2(-120.0, 100.0), "B(-2|1)"),
-        (vec2(-120.0, -100.0), "C(-2|-1)"),
-        (vec2(120.0, -100.0), "D(2|-1)"),
+        (vec2(100.0, 50.0), "A(2|1)"),
+        (vec2(-100.0, 50.0), "B(-2|1)"),
+        (vec2(-100.0, -50.0), "C(-2|-1)"),
+        (vec2(100.0, -50.0), "D(2|-1)"),
     ];
 
     for (position, label) in points {
