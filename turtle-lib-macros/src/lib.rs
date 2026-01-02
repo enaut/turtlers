@@ -128,54 +128,19 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                // Parse command-line arguments for SVG export FIRST (before any graphics init)
-                let export_svg_path = turtle_lib::export::parse_svg_export_arg();
+                // Build function reused for both export and normal rendering
+                let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
+                    #fn_name(turtle);
+                };
 
-                // Handle SVG export mode (execute instantly without rendering)
-                if let Some(filename) = export_svg_path {
-                    #[cfg(feature = "svg")]
-                    {
-                        let mut turtle = turtle_lib::create_turtle_plan();
-                        #fn_name(&mut turtle);
-
-                        // Create app and execute instantly
-                        let mut app = turtle_lib::TurtleApp::new()
-                            .with_commands(turtle.build());
-                        
-                        // Set instant speed to execute all commands immediately
-                        // Use a high draw call limit (1000) to ensure all commands execute in one frame
-                        app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
-                        
-                        // Execute all commands instantly (no rendering needed)
-                        while !app.all_animations_complete() {
-                            app.update();
-                        }
-                        
-                        // Export to SVG
-                        match app.export_drawing(&filename, turtle_lib::export::DrawingFormat::Svg) {
-                            Ok(_) => {
-                                println!("SVG exported successfully to: {}", filename);
-                                std::process::exit(0);
-                            }
-                            Err(e) => {
-                                eprintln!("Error exporting SVG: {:?}", e);
-                                std::process::exit(1);
-                            }
-                        }
-                    }
-                    #[cfg(not(feature = "svg"))]
-                    {
-                        eprintln!("Error: SVG export feature is not enabled.");
-                        eprintln!("Please rebuild with --features svg");
-                        std::process::exit(1);
-                    }
-                }
+                // Handle optional SVG export internally in turtle-lib
+                turtle_lib::export::handle_svg_export(&mut build_commands);
 
                 // Normal rendering mode (with window)
                 let mut turtle = turtle_lib::create_turtle_plan();
 
                 // Call the user's function with the turtle
-                #fn_name(&mut turtle);
+                build_commands(&mut turtle);
 
                 let mut app = turtle_lib::TurtleApp::new()
                     .with_commands(turtle.build());
@@ -209,52 +174,18 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[macroquad::main(#window_title)]
             async fn main() {
-                // Parse command-line arguments for SVG export FIRST (before any graphics init)
-                let export_svg_path = turtle_lib::export::parse_svg_export_arg();
+                // Build function reused for both export and normal rendering
+                let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
+                    let turtle = turtle;
+                    #fn_block
+                };
 
-                // Handle SVG export mode (execute instantly without rendering)
-                if let Some(filename) = export_svg_path {
-                    #[cfg(feature = "svg")]
-                    {
-                        let mut turtle = turtle_lib::create_turtle_plan();
-                        #fn_block
-
-                        // Create app and execute instantly
-                        let mut app = turtle_lib::TurtleApp::new()
-                            .with_commands(turtle.build());
-                        
-                        // Set instant speed to execute all commands immediately
-                        // Use a high draw call limit (1000) to ensure all commands execute in one frame
-                        app.set_all_turtles_speed(turtle_lib::AnimationSpeed::Instant(1000));
-                        
-                        // Execute all commands instantly (no rendering needed)
-                        while !app.all_animations_complete() {
-                            app.update();
-                        }
-                        
-                        // Export to SVG
-                        match app.export_drawing(&filename, turtle_lib::export::DrawingFormat::Svg) {
-                            Ok(_) => {
-                                println!("SVG exported successfully to: {}", filename);
-                                std::process::exit(0);
-                            }
-                            Err(e) => {
-                                eprintln!("Error exporting SVG: {:?}", e);
-                                std::process::exit(1);
-                            }
-                        }
-                    }
-                    #[cfg(not(feature = "svg"))]
-                    {
-                        eprintln!("Error: SVG export feature is not enabled.");
-                        eprintln!("Please rebuild with --features svg");
-                        std::process::exit(1);
-                    }
-                }
+                // Handle optional SVG export internally in turtle-lib
+                turtle_lib::export::handle_svg_export(&mut build_commands);
 
                 // Normal rendering mode (with window)
                 let mut turtle = turtle_lib::create_turtle_plan();
-                #fn_block
+                build_commands(&mut turtle);
 
                 let mut app = turtle_lib::TurtleApp::new()
                     .with_commands(turtle.build());
