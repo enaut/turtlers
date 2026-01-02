@@ -1,5 +1,6 @@
 //! Beispiel: Exportiere ein SVG aus einer einfachen Zeichnung
 
+#[cfg(feature = "svg")]
 use turtle_lib::*;
 
 #[cfg(feature = "svg")]
