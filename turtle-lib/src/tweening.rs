@@ -319,10 +319,7 @@ impl TweenController {
     }
 
     fn command_creates_drawing(command: &TurtleCommand) -> bool {
-        matches!(
-            command,
-            TurtleCommand::Move(_) | TurtleCommand::Circle { .. } | TurtleCommand::Goto(_)
-        )
+        command.produces_drawing()
     }
 
     fn calculate_duration_with_state(
@@ -330,110 +327,12 @@ impl TweenController {
         current: &Turtle,
         speed: AnimationSpeed,
     ) -> f64 {
-        let mut speed = speed.value();
-
-        // For high speeds, make animation even faster by scaling speed exponentially
-        if speed > 100.0 {
-            speed *= speed / 100.0;
-        }
-
-        let base_time = match command {
-            TurtleCommand::Move(dist) => dist.abs() / speed,
-            TurtleCommand::Turn(angle) => {
-                // Rotation speed: assume 180 degrees per second at speed 100
-                angle.abs() / (speed * 1.8)
-            }
-            TurtleCommand::Circle { radius, angle, .. } => {
-                let arc_length = radius * angle.to_radians().abs();
-                arc_length / speed
-            }
-            TurtleCommand::Goto(target) => {
-                // Calculate actual distance from current position to target
-                let dx = target.x - current.params.position.x;
-                let dy = target.y - current.params.position.y;
-                let distance = (dx * dx + dy * dy).sqrt();
-                distance / speed
-            }
-            _ => 0.0, // Instant commands
-        };
-        f64::from(base_time.max(0.01)) // Minimum duration
+        command.animation_duration(&current.params, speed)
     }
 
     fn calculate_target_state(current: &TurtleParams, command: &TurtleCommand) -> TurtleParams {
         let mut target = current.clone();
-
-        match command {
-            TurtleCommand::Move(dist) => {
-                let dx = dist * current.heading.cos();
-                let dy = dist * current.heading.sin();
-                target.position = vec2(current.position.x + dx, current.position.y + dy);
-            }
-            TurtleCommand::Turn(angle) => {
-                target.heading = normalize_angle(current.heading + angle.to_radians());
-            }
-            TurtleCommand::Circle {
-                radius,
-                angle,
-                direction,
-                ..
-            } => {
-                // Use helper function to calculate final position
-                target.position = calculate_circle_position(
-                    current.position,
-                    current.heading,
-                    *radius,
-                    angle.to_radians(),
-                    *direction,
-                );
-                target.heading = normalize_angle(match direction {
-                    CircleDirection::Left => current.heading - angle.to_radians(),
-                    CircleDirection::Right => current.heading + angle.to_radians(),
-                });
-            }
-            TurtleCommand::Goto(coord) => {
-                // Flip Y coordinate: turtle graphics uses Y+ = up, but Macroquad uses Y+ = down
-                target.position = vec2(coord.x, -coord.y);
-            }
-            TurtleCommand::SetHeading(heading) => {
-                target.heading = normalize_angle(*heading);
-            }
-            TurtleCommand::SetColor(color) => {
-                target.color = *color;
-            }
-            TurtleCommand::SetPenWidth(width) => {
-                target.pen_width = *width;
-            }
-            TurtleCommand::SetSpeed(speed) => {
-                target.speed = *speed;
-            }
-            TurtleCommand::SetShape(shape) => {
-                target.shape = shape.clone();
-            }
-            TurtleCommand::PenUp => {
-                target.pen_down = false;
-            }
-            TurtleCommand::PenDown => {
-                target.pen_down = true;
-            }
-            TurtleCommand::ShowTurtle => {
-                target.visible = true;
-            }
-            TurtleCommand::HideTurtle => {
-                target.visible = false;
-            }
-            TurtleCommand::SetFillColor(color) => {
-                target.fill_color = *color;
-            }
-            TurtleCommand::BeginFill | TurtleCommand::EndFill | TurtleCommand::WriteText { .. } => {
-                // Fill and text commands don't change turtle state for tweening purposes
-                // They're handled directly in execution
-            }
-            TurtleCommand::Reset => {
-                // Reset returns to default state
-                target = TurtleParams::default();
-            }
-        }
-
+        command.apply_to_params(&mut target);
         target
     }
 }
@@ -451,7 +350,7 @@ fn calculate_circle_position(
 }
 
 /// Normalize angle to range [-PI, PI] to prevent floating-point drift
-fn normalize_angle(angle: f32) -> f32 {
+pub(crate) fn normalize_angle(angle: f32) -> f32 {
     let two_pi = std::f32::consts::PI * 2.0;
     let mut normalized = angle % two_pi;
 

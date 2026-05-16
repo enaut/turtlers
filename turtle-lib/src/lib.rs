@@ -48,6 +48,7 @@
 
 pub(crate) mod builders;
 pub(crate) mod circle_geometry;
+pub(crate) mod command_behavior;
 pub(crate) mod commands;
 pub(crate) mod commands_channel;
 pub(crate) mod drawing;
@@ -297,14 +298,12 @@ impl TurtleApp {
             let completed_commands = TweenController::update(turtle);
 
             // Process all completed commands and add to the turtle's commands
-            for (completed_cmd, tween_start, mut end_state) in completed_commands {
-                let draw_command = execution::add_draw_for_completed_tween(
-                    &completed_cmd,
-                    &tween_start,
-                    &mut end_state,
-                );
-                // Add the new draw commands to the turtle
-                turtle.commands.extend(draw_command);
+            for (completed_cmd, tween_start, end_state) in completed_commands {
+                if let Some(draw_cmd) =
+                    execution::tessellate_command(&completed_cmd, &tween_start, end_state.position)
+                {
+                    turtle.commands.push(draw_cmd);
+                }
             }
         }
     }

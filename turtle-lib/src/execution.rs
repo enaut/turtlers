@@ -1,6 +1,6 @@
 //! Command execution logic
 
-use crate::circle_geometry::{CircleDirection, CircleGeometry};
+use crate::circle_geometry::CircleGeometry;
 use crate::commands::TurtleCommand;
 use crate::state::{DrawCommand, Turtle, TurtleParams, TurtleWorld};
 use crate::tessellation;
@@ -197,54 +197,49 @@ pub(crate) fn record_fill_vertices_after_movement(
     }
 }
 
-/// Execute a single turtle command, updating state and adding draw commands
-#[tracing::instrument]
-#[allow(clippy::too_many_lines)]
-pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
-    // Try to execute as side-effect-only command first
-    if execute_command_side_effects(command, state) {
-        return; // Command fully handled
+/// Tessellate a completed movement command into a [`DrawCommand`] mesh.
+///
+/// Returns `None` if the pen was up or the command does not produce a drawing.
+///
+/// `end_position` is the turtle's position after the command completed:
+/// - instant-mode: `state.params.position` after [`TurtleCommand::apply_to_params`]
+/// - animated-mode: `tween.target_params.position` when the tween finishes
+///
+/// This is the **single** tessellation site for all committed line/arc meshes.
+/// It replaces both the inline tessellation inside `execute_command` and the
+/// now-deleted `add_draw_for_completed_tween`.
+pub(crate) fn tessellate_command(
+    command: &TurtleCommand,
+    start: &TurtleParams,
+    end_position: Vec2,
+) -> Option<DrawCommand> {
+    if !start.pen_down || !command.produces_drawing() {
+        return None;
     }
 
-    // Store start state for fill vertex recording
-    let start_state = state.clone();
-
-    // Execute movement and appearance commands
     match command {
-        TurtleCommand::Move(distance) => {
-            let start = state.params.position;
-            let dx = distance * state.params.heading.cos();
-            let dy = distance * state.params.heading.sin();
-            state.params.position =
-                vec2(state.params.position.x + dx, state.params.position.y + dy);
+        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+            let mesh_data = tessellation::tessellate_stroke(
+                &[start.position, end_position],
+                start.color,
+                start.pen_width,
+                false,
+            )
+            .ok()?;
 
-            if state.params.pen_down {
-                // Draw line segment with round caps (caps handled by tessellate_stroke)
-                if let Ok(mesh_data) = tessellation::tessellate_stroke(
-                    &[start, state.params.position],
-                    state.params.color,
-                    state.params.pen_width,
-                    false, // not closed
-                ) {
-                    state.commands.push(DrawCommand::Mesh {
-                        data: mesh_data,
-                        source: crate::state::TurtleSource {
-                            command: command.clone(),
-                            color: state.params.color,
-                            fill_color: state.params.fill_color.unwrap_or(BLACK),
-                            pen_width: state.params.pen_width,
-                            start_position: start,
-                            end_position: state.params.position,
-                            start_heading: state.params.heading,
-                            contours: None,
-                        },
-                    });
-                }
-            }
-        }
-
-        TurtleCommand::Turn(degrees) => {
-            state.params.heading += degrees.to_radians();
+            Some(DrawCommand::Mesh {
+                data: mesh_data,
+                source: crate::state::TurtleSource {
+                    command: command.clone(),
+                    color: start.color,
+                    fill_color: start.fill_color.unwrap_or(BLACK),
+                    pen_width: start.pen_width,
+                    start_position: start.position,
+                    end_position,
+                    start_heading: start.heading,
+                    contours: None,
+                },
+            })
         }
 
         TurtleCommand::Circle {
@@ -253,96 +248,61 @@ pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
             steps,
             direction,
         } => {
-            let start_heading = state.params.heading;
-            let geom =
-                CircleGeometry::new(state.params.position, start_heading, *radius, *direction);
+            use crate::circle_geometry::CircleGeometry;
+            let geom = CircleGeometry::new(start.position, start.heading, *radius, *direction);
+            let mesh_data = tessellation::tessellate_arc(
+                geom.center,
+                *radius,
+                geom.start_angle_from_center.to_degrees(),
+                *angle,
+                start.color,
+                start.pen_width,
+                *steps,
+                *direction,
+            )
+            .ok()?;
 
-            if state.params.pen_down {
-                // Use Lyon to tessellate the arc
-                if let Ok(mesh_data) = tessellation::tessellate_arc(
-                    geom.center,
-                    *radius,
-                    geom.start_angle_from_center.to_degrees(),
-                    *angle,
-                    state.params.color,
-                    state.params.pen_width,
-                    *steps,
-                    *direction,
-                ) {
-                    state.commands.push(DrawCommand::Mesh {
-                        data: mesh_data,
-                        source: crate::state::TurtleSource {
-                            command: command.clone(),
-                            color: state.params.color,
-                            fill_color: state.params.fill_color.unwrap_or(BLACK),
-                            pen_width: state.params.pen_width,
-                            start_position: state.params.position,
-                            end_position: geom.position_at_angle(angle.to_radians()),
-                            start_heading,
-                            contours: None,
-                        },
-                    });
-                }
-            }
-
-            // Update turtle position and heading
-            state.params.position = geom.position_at_angle(angle.to_radians());
-            state.params.heading = match direction {
-                CircleDirection::Left => start_heading - angle.to_radians(),
-                CircleDirection::Right => start_heading + angle.to_radians(),
-            };
+            Some(DrawCommand::Mesh {
+                data: mesh_data,
+                source: crate::state::TurtleSource {
+                    command: command.clone(),
+                    color: start.color,
+                    fill_color: start.fill_color.unwrap_or(BLACK),
+                    pen_width: start.pen_width,
+                    start_position: start.position,
+                    end_position,
+                    start_heading: start.heading,
+                    contours: None,
+                },
+            })
         }
 
-        TurtleCommand::Goto(coord) => {
-            let start = state.params.position;
-            // Flip Y coordinate: turtle graphics uses Y+ = up, but Macroquad uses Y+ = down
-            state.params.position = vec2(coord.x, -coord.y);
+        // `produces_drawing()` guards entry — this arm is only reachable if
+        // `produces_drawing` and the match above diverge, which would be a bug.
+        _ => None,
+    }
+}
 
-            if state.params.pen_down {
-                // Draw line segment with round caps
-                if let Ok(mesh_data) = tessellation::tessellate_stroke(
-                    &[start, state.params.position],
-                    state.params.color,
-                    state.params.pen_width,
-                    false, // not closed
-                ) {
-                    state.commands.push(DrawCommand::Mesh {
-                        data: mesh_data,
-                        source: crate::state::TurtleSource {
-                            command: command.clone(),
-                            color: state.params.color,
-                            fill_color: state.params.fill_color.unwrap_or(BLACK),
-                            pen_width: state.params.pen_width,
-                            start_position: start,
-                            end_position: state.params.position,
-                            start_heading: state.params.heading,
-                            contours: None,
-                        },
-                    });
-                }
-            }
-        }
-
-        // Appearance commands
-        TurtleCommand::SetColor(color) => state.params.color = *color,
-        TurtleCommand::SetFillColor(color) => state.params.fill_color = *color,
-        TurtleCommand::SetPenWidth(width) => state.params.pen_width = *width,
-        TurtleCommand::SetSpeed(speed) => state.set_speed(*speed),
-        TurtleCommand::SetShape(shape) => state.params.shape = shape.clone(),
-        TurtleCommand::SetHeading(heading) => state.params.heading = *heading,
-        TurtleCommand::ShowTurtle => state.params.visible = true,
-        TurtleCommand::HideTurtle => state.params.visible = false,
-
-        // Reset
-        TurtleCommand::Reset => {
-            state.reset();
-        }
-
-        _ => {} // Already handled by execute_command_side_effects
+/// Execute a single turtle command, updating state and adding draw commands
+#[tracing::instrument]
+pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
+    // Phase 1: side effects (fills, pen contours, reset, text).
+    // Returns true if the command is fully handled — no params update or tessellation needed.
+    if execute_command_side_effects(command, state) {
+        return;
     }
 
-    // Record fill vertices AFTER movement
-    record_fill_vertices_after_movement(command, &start_state.params, state);
+    // Phase 2: update TurtleParams (position, heading, colour, speed, etc.)
+    let start_params = state.params.clone();
+    command.apply_to_params(&mut state.params);
+
+    // Phase 3: record fill vertices after movement (must follow params update)
+    record_fill_vertices_after_movement(command, &start_params, state);
+
+    // Phase 4: tessellate and persist the committed drawing
+    if let Some(draw_cmd) = tessellate_command(command, &start_params, state.params.position) {
+        state.commands.push(draw_cmd);
+    }
 }
 
 /// Execute command on a specific turtle by ID
@@ -360,81 +320,6 @@ pub(crate) fn execute_command_with_id(
             *turtle_mut = state;
         }
     }
-}
-
-/// Add drawing command for a completed tween
-pub(crate) fn add_draw_for_completed_tween(
-    command: &TurtleCommand,
-    start_state: &TurtleParams,
-    end_state: &mut TurtleParams,
-) -> Option<DrawCommand> {
-    match command {
-        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-            if start_state.pen_down {
-                if let Ok(mesh_data) = tessellation::tessellate_stroke(
-                    &[start_state.position, end_state.position],
-                    start_state.color,
-                    start_state.pen_width,
-                    false,
-                ) {
-                    return Some(DrawCommand::Mesh {
-                        data: mesh_data,
-                        source: crate::state::TurtleSource {
-                            command: command.clone(),
-                            color: start_state.color,
-                            fill_color: start_state.fill_color.unwrap_or(BLACK),
-                            pen_width: start_state.pen_width,
-                            start_position: start_state.position,
-                            end_position: end_state.position,
-                            start_heading: start_state.heading,
-                            contours: None,
-                        },
-                    });
-                }
-            }
-        }
-        TurtleCommand::Circle {
-            radius,
-            angle,
-            steps,
-            direction,
-        } => {
-            if start_state.pen_down {
-                let geom = CircleGeometry::new(
-                    start_state.position,
-                    start_state.heading,
-                    *radius,
-                    *direction,
-                );
-                if let Ok(mesh_data) = tessellation::tessellate_arc(
-                    geom.center,
-                    *radius,
-                    geom.start_angle_from_center.to_degrees(),
-                    *angle,
-                    start_state.color,
-                    start_state.pen_width,
-                    *steps,
-                    *direction,
-                ) {
-                    return Some(DrawCommand::Mesh {
-                        data: mesh_data,
-                        source: crate::state::TurtleSource {
-                            command: command.clone(),
-                            color: start_state.color,
-                            fill_color: start_state.fill_color.unwrap_or(BLACK),
-                            pen_width: start_state.pen_width,
-                            start_position: start_state.position,
-                            end_position: end_state.position,
-                            start_heading: start_state.heading,
-                            contours: None,
-                        },
-                    });
-                }
-            }
-        }
-        _ => (),
-    }
-    None
 }
 
 #[cfg(test)]
