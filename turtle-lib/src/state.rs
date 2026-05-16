@@ -8,33 +8,33 @@ use macroquad::prelude::*;
 
 /// State during active fill operation
 #[derive(Clone, Debug)]
-pub struct FillState {
+pub(crate) struct FillState {
     /// Starting position of the fill
-    pub start_position: Coordinate,
+    pub(crate) start_position: Coordinate,
 
     /// All contours collected so far. Each contour is a separate closed path.
     /// The first contour is the outer boundary, subsequent contours are holes.
-    pub contours: Vec<Vec<Coordinate>>,
+    pub(crate) contours: Vec<Vec<Coordinate>>,
 
     /// Current contour being built (vertices for the active `pen_down` segment)
-    pub current_contour: Vec<Coordinate>,
+    pub(crate) current_contour: Vec<Coordinate>,
 
     /// Fill color (cached from when `begin_fill` was called)
-    pub fill_color: Color,
+    pub(crate) fill_color: Color,
 }
 
 /// Parameters that define a turtle's visual state
 #[derive(Clone, Debug)]
-pub struct TurtleParams {
-    pub position: Vec2,
-    pub heading: f32,
-    pub pen_down: bool,
-    pub pen_width: f32,
-    pub color: Color,
-    pub fill_color: Option<Color>,
-    pub visible: bool,
-    pub shape: crate::shapes::TurtleShape,
-    pub speed: AnimationSpeed,
+pub(crate) struct TurtleParams {
+    pub(crate) position: Vec2,
+    pub(crate) heading: f32,
+    pub(crate) pen_down: bool,
+    pub(crate) pen_width: f32,
+    pub(crate) color: Color,
+    pub(crate) fill_color: Option<Color>,
+    pub(crate) visible: bool,
+    pub(crate) shape: crate::shapes::TurtleShape,
+    pub(crate) speed: AnimationSpeed,
 }
 
 impl Default for TurtleParams {
@@ -56,18 +56,18 @@ impl Default for TurtleParams {
 
 /// State of a single turtle
 #[derive(Clone, Debug)]
-pub struct Turtle {
-    pub turtle_id: usize,
-    pub params: TurtleParams,
+pub(crate) struct Turtle {
+    pub(crate) turtle_id: usize,
+    pub(crate) params: TurtleParams,
 
     // Fill tracking
-    pub filling: Option<FillState>,
+    pub(crate) filling: Option<FillState>,
 
     // Drawing commands created by this turtle
-    pub commands: Vec<DrawCommand>,
+    pub(crate) commands: Vec<DrawCommand>,
 
     // Animation controller for this turtle
-    pub tween_controller: TweenController,
+    pub(crate) tween_controller: TweenController,
 }
 
 impl Default for Turtle {
@@ -259,9 +259,9 @@ impl Turtle {
 
 /// Cached mesh data that can be cloned and converted to Mesh when needed
 #[derive(Clone, Debug)]
-pub struct MeshData {
-    pub vertices: Vec<macroquad::prelude::Vertex>,
-    pub indices: Vec<u16>,
+pub(crate) struct MeshData {
+    pub(crate) vertices: Vec<macroquad::prelude::Vertex>,
+    pub(crate) indices: Vec<u16>,
 }
 
 impl MeshData {
@@ -278,19 +278,19 @@ impl MeshData {
 /// Drawable elements in the world
 /// All drawing is done via Lyon-tessellated meshes for consistency and quality
 #[derive(Clone, Debug)]
-pub struct TurtleSource {
-    pub command: crate::commands::TurtleCommand,
-    pub color: Color,
-    pub fill_color: Color,
-    pub pen_width: f32,
-    pub start_position: Vec2,
-    pub end_position: Vec2,
-    pub start_heading: f32,
-    pub contours: Option<Vec<Vec<crate::general::Coordinate>>>,
+pub(crate) struct TurtleSource {
+    pub(crate) command: crate::commands::TurtleCommand,
+    pub(crate) color: Color,
+    pub(crate) fill_color: Color,
+    pub(crate) pen_width: f32,
+    pub(crate) start_position: Vec2,
+    pub(crate) end_position: Vec2,
+    pub(crate) start_heading: f32,
+    pub(crate) contours: Option<Vec<Vec<crate::general::Coordinate>>>,
 }
 
 #[derive(Clone, Debug)]
-pub enum DrawCommand {
+pub(crate) enum DrawCommand {
     /// Pre-tessellated mesh data (lines, arcs, circles, polygons - all use this)
     Mesh {
         data: MeshData,
@@ -308,11 +308,11 @@ pub enum DrawCommand {
 }
 
 /// The complete turtle world containing all drawing state
-pub struct TurtleWorld {
+pub(crate) struct TurtleWorld {
     /// All turtles in the world (indexed by turtle ID)
-    pub turtles: Vec<Turtle>,
-    pub camera: Camera2D,
-    pub background_color: Color,
+    pub(crate) turtles: Vec<Turtle>,
+    pub(crate) camera: Camera2D,
+    pub(crate) background_color: Color,
 }
 
 impl TurtleWorld {

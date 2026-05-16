@@ -14,26 +14,30 @@ use macroquad::prelude::*;
 
 /// Convert macroquad Vec2 to Lyon Point
 #[must_use]
-pub fn to_lyon_point(v: Vec2) -> Point {
+pub(crate) fn to_lyon_point(v: Vec2) -> Point {
     point(v.x, v.y)
 }
 
 /// Convert Lyon Point to macroquad Vec2
 #[allow(dead_code)]
 #[must_use]
-pub fn to_macroquad_vec2(p: Point) -> Vec2 {
+pub(crate) fn to_macroquad_vec2(p: Point) -> Vec2 {
     vec2(p.x, p.y)
 }
 
 /// Simple vertex type for Lyon tessellation
 #[derive(Copy, Clone, Debug)]
-pub struct SimpleVertex {
-    pub position: [f32; 2],
+pub(crate) struct SimpleVertex {
+    pub(crate) position: [f32; 2],
 }
 
 /// Build mesh data from Lyon tessellation
 #[must_use]
-pub fn build_mesh_data(vertices: &[SimpleVertex], indices: &[u16], color: Color) -> MeshData {
+pub(crate) fn build_mesh_data(
+    vertices: &[SimpleVertex],
+    indices: &[u16],
+    color: Color,
+) -> MeshData {
     let verts: Vec<Vertex> = vertices
         .iter()
         .map(|v| Vertex {
@@ -62,7 +66,7 @@ pub fn build_mesh_data(vertices: &[SimpleVertex], indices: &[u16], color: Color)
 /// # Errors
 ///
 /// Returns an error if no vertices are provided or if tessellation fails.
-pub fn tessellate_polygon(
+pub(crate) fn tessellate_polygon(
     vertices: &[Vec2],
     color: Color,
 ) -> Result<MeshData, Box<dyn std::error::Error>> {
@@ -107,7 +111,7 @@ pub fn tessellate_polygon(
 /// # Errors
 ///
 /// Returns an error if no contours are provided or if tessellation fails.
-pub fn tessellate_multi_contour(
+pub(crate) fn tessellate_multi_contour(
     contours: &[Vec<Vec2>],
     color: Color,
 ) -> Result<MeshData, Box<dyn std::error::Error>> {
@@ -203,7 +207,7 @@ pub fn tessellate_multi_contour(
 /// # Errors
 ///
 /// Returns an error if no vertices are provided or if tessellation fails.
-pub fn tessellate_stroke(
+pub(crate) fn tessellate_stroke(
     vertices: &[Vec2],
     color: Color,
     width: f32,
@@ -249,7 +253,7 @@ pub fn tessellate_stroke(
 /// # Errors
 ///
 /// Returns an error if tessellation fails.
-pub fn tessellate_circle(
+pub(crate) fn tessellate_circle(
     center: Vec2,
     radius: f32,
     color: Color,
@@ -295,7 +299,7 @@ pub fn tessellate_circle(
 ///
 /// Returns an error if tessellation fails.
 #[allow(clippy::too_many_arguments)]
-pub fn tessellate_arc(
+pub(crate) fn tessellate_arc(
     center: Vec2,
     radius: f32,
     start_angle_degrees: f32,

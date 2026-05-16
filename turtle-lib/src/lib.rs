@@ -34,9 +34,9 @@
 //! async fn main() {
 //!     let mut plan = create_turtle_plan();
 //!     plan.forward(100.0).right(90.0).forward(100.0);
-//!     
+//!
 //!     let mut app = TurtleApp::new().with_commands(plan.build());
-//!     
+//!
 //!     loop {
 //!         clear_background(WHITE);
 //!         app.update();
@@ -46,30 +46,28 @@
 //! }
 //! ```
 
-pub mod builders;
-pub mod circle_geometry;
-pub mod commands;
-pub mod commands_channel;
-pub mod drawing;
-pub mod execution;
-pub mod general;
-pub mod shapes;
-pub mod state;
-pub mod tessellation;
-pub mod tweening;
+pub(crate) mod builders;
+pub(crate) mod circle_geometry;
+pub(crate) mod commands;
+pub(crate) mod commands_channel;
+pub(crate) mod drawing;
+pub(crate) mod execution;
+pub(crate) mod general;
+pub(crate) mod shapes;
+pub(crate) mod state;
+pub(crate) mod tessellation;
+pub(crate) mod tweening;
 
 // Re-export commonly used types
 pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
 pub use commands::{CommandQueue, TurtleCommand};
-pub use commands_channel::{turtle_command_channel, TurtleCommandReceiver, TurtleCommandSender};
+pub use commands_channel::TurtleCommandSender;
 pub use general::{Angle, AnimationSpeed, Color, Coordinate, Length, Precision};
 pub use shapes::{ShapeType, TurtleShape};
-pub use state::{DrawCommand, Turtle, TurtleWorld};
-pub use tweening::TweenController;
 
 pub mod export;
 #[cfg(feature = "svg")]
-pub mod export_svg;
+pub(crate) mod export_svg;
 
 // Re-export the turtle_main macro
 pub use turtle_lib_macros::turtle_main;
@@ -79,6 +77,9 @@ pub use macroquad::prelude::{
     vec2, BLACK, BLUE, DARKGRAY, GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
 };
 
+use crate::commands_channel::TurtleCommandReceiver;
+use crate::state::TurtleWorld;
+use crate::tweening::TweenController;
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -386,12 +387,12 @@ impl TurtleApp {
 
     /// Get reference to the world state
     #[must_use]
-    pub fn world(&self) -> &TurtleWorld {
+    pub(crate) fn world(&self) -> &TurtleWorld {
         &self.world
     }
 
     /// Get mutable reference to the world state
-    pub fn world_mut(&mut self) -> &mut TurtleWorld {
+    pub(crate) fn world_mut(&mut self) -> &mut TurtleWorld {
         &mut self.world
     }
 }

@@ -12,7 +12,7 @@ use crate::general::AnimationSpeed;
 /// Execute side effects for commands that don't involve movement
 /// Returns true if the command was handled (caller should skip movement processing)
 #[allow(clippy::too_many_lines)]
-pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle) -> bool {
+pub(crate) fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle) -> bool {
     match command {
         TurtleCommand::BeginFill => {
             if state.filling.is_some() {
@@ -159,7 +159,7 @@ pub fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle)
 
 /// Record fill vertices after movement commands have updated state
 #[tracing::instrument]
-pub fn record_fill_vertices_after_movement(
+pub(crate) fn record_fill_vertices_after_movement(
     command: &TurtleCommand,
     start_state: &TurtleParams,
     state: &mut Turtle,
@@ -200,7 +200,7 @@ pub fn record_fill_vertices_after_movement(
 /// Execute a single turtle command, updating state and adding draw commands
 #[tracing::instrument]
 #[allow(clippy::too_many_lines)]
-pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
+pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
     // Try to execute as side-effect-only command first
     if execute_command_side_effects(command, state) {
         return; // Command fully handled
@@ -346,7 +346,11 @@ pub fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
 }
 
 /// Execute command on a specific turtle by ID
-pub fn execute_command_with_id(command: &TurtleCommand, turtle_id: usize, world: &mut TurtleWorld) {
+pub(crate) fn execute_command_with_id(
+    command: &TurtleCommand,
+    turtle_id: usize,
+    world: &mut TurtleWorld,
+) {
     // Clone turtle state to avoid borrow checker issues
     if let Some(turtle) = world.get_turtle(turtle_id) {
         let mut state = turtle.clone();
@@ -359,7 +363,7 @@ pub fn execute_command_with_id(command: &TurtleCommand, turtle_id: usize, world:
 }
 
 /// Add drawing command for a completed tween
-pub fn add_draw_for_completed_tween(
+pub(crate) fn add_draw_for_completed_tween(
     command: &TurtleCommand,
     start_state: &TurtleParams,
     end_state: &mut TurtleParams,

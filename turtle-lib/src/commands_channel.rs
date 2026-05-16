@@ -76,7 +76,7 @@ pub struct TurtleCommandSender {
 ///
 /// Paired with `TurtleCommandSender` via `turtle_command_channel()`.
 /// Automatically managed by `TurtleApp::process_commands()`.
-pub struct TurtleCommandReceiver {
+pub(crate) struct TurtleCommandReceiver {
     turtle_id: usize,
     rx: Receiver<CommandQueue>,
 }
@@ -212,7 +212,7 @@ impl TurtleCommandReceiver {
 /// # }
 /// ```
 #[must_use]
-pub fn turtle_command_channel(
+pub(crate) fn turtle_command_channel(
     turtle_id: usize,
     buffer_size: usize,
 ) -> (TurtleCommandSender, TurtleCommandReceiver) {

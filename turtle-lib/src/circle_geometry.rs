@@ -10,11 +10,11 @@ pub enum CircleDirection {
 }
 
 /// Encapsulates all geometry for a circular arc
-pub struct CircleGeometry {
-    pub center: Vec2,
-    pub radius: f32,
-    pub start_angle_from_center: f32, // radians
-    pub direction: CircleDirection,
+pub(crate) struct CircleGeometry {
+    pub(crate) center: Vec2,
+    pub(crate) radius: f32,
+    pub(crate) start_angle_from_center: f32, // radians
+    pub(crate) direction: CircleDirection,
 }
 
 impl CircleGeometry {

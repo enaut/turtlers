@@ -17,7 +17,7 @@ pub enum DrawingFormat {
     // Weitere Formate wie Png, Pdf, ...
 }
 
-pub trait DrawingExporter {
+pub(crate) trait DrawingExporter {
     /// Export the drawing to the specified format and filename
     ///
     /// # Errors
@@ -26,7 +26,7 @@ pub trait DrawingExporter {
     fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError>;
 }
 
-pub fn parse_svg_export_arg() -> Option<String> {
+pub(crate) fn parse_svg_export_arg() -> Option<String> {
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < args.len() {

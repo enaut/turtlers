@@ -13,7 +13,7 @@ use macroquad::prelude::*;
 use tween::CubicInOut;
 
 /// Render the entire turtle world
-pub fn render_world(world: &TurtleWorld) {
+pub(crate) fn render_world(world: &TurtleWorld) {
     // Update camera zoom based on current screen size to prevent stretching
     let camera = Camera2D {
         zoom: vec2(1.0 / screen_width() * 2.0, 1.0 / screen_height() * 2.0),
@@ -61,7 +61,7 @@ pub fn render_world(world: &TurtleWorld) {
 
 /// Render the turtle world with active tween visualization
 #[allow(clippy::too_many_lines)]
-pub fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
+pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     // Update camera zoom based on current screen size to prevent stretching
     // Apply user zoom level by dividing by it (smaller zoom value = more zoomed in)
     let camera = Camera2D {
@@ -386,7 +386,7 @@ fn draw_tween_arc(
 }
 
 /// Draw the turtle shape
-pub fn draw_turtle(turtle_params: &TurtleParams) {
+pub(crate) fn draw_turtle(turtle_params: &TurtleParams) {
     let rotated_vertices = turtle_params.shape.rotated_vertices(turtle_params.heading);
 
     if turtle_params.shape.filled {

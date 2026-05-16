@@ -45,22 +45,22 @@ impl From<TweenVec2> for Vec2 {
 
 /// Controls tweening of turtle commands
 #[derive(Clone, Debug, Default)]
-pub struct TweenController {
+pub(crate) struct TweenController {
     queue: CommandQueue,
     current_tween: Option<CommandTween>,
     speed: AnimationSpeed,
 }
 
 #[derive(Clone, Debug)]
-pub struct CommandTween {
-    pub turtle_id: usize,
-    pub command: TurtleCommand,
-    pub start_time: f64,
-    pub duration: f64,
-    pub start_params: TurtleParams,
-    pub target_params: TurtleParams,
-    pub current_position: Vec2,
-    pub current_heading: f32,
+pub(crate) struct CommandTween {
+    pub(crate) turtle_id: usize,
+    pub(crate) command: TurtleCommand,
+    pub(crate) start_time: f64,
+    pub(crate) duration: f64,
+    pub(crate) start_params: TurtleParams,
+    pub(crate) target_params: TurtleParams,
+    pub(crate) current_position: Vec2,
+    pub(crate) current_heading: f32,
     position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
     heading_tweener: Tweener<f32, f64, CubicInOut>,
     pen_width_tweener: Tweener<f32, f64, CubicInOut>,
