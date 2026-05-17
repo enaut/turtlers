@@ -1,52 +1,120 @@
 //! Command execution logic
 
-use crate::circle_geometry::CircleGeometry;
+use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::TurtleCommand;
-use crate::state::{DrawCommand, Turtle, TurtleParams, TurtleWorld};
+use crate::general::Coordinate;
+use crate::state::{DrawCommand, FillState, Turtle, TurtleParams, TurtleWorld};
 use crate::tessellation;
 use macroquad::prelude::*;
 
 #[cfg(test)]
 use crate::general::AnimationSpeed;
 
-/// Execute side effects for commands that don't involve movement
-/// Returns true if the command was handled (caller should skip movement processing)
+/// Close the current open fill contour (factored out of `Turtle::close_fill_contour`).
+fn close_fill_contour(turtle_id: usize, filling: &mut Option<FillState>) {
+    if let Some(ref mut fill_state) = filling {
+        tracing::debug!(
+            turtle_id,
+            vertices = fill_state.current_contour.len(),
+            "close_fill_contour called"
+        );
+        if fill_state.current_contour.len() >= 2 {
+            tracing::debug!(
+                turtle_id,
+                vertices = fill_state.current_contour.len(),
+                first_x = fill_state.current_contour[0].x,
+                first_y = fill_state.current_contour[0].y,
+                last_x = fill_state.current_contour[fill_state.current_contour.len() - 1].x,
+                last_y = fill_state.current_contour[fill_state.current_contour.len() - 1].y,
+                "Closing contour"
+            );
+            let contour = std::mem::take(&mut fill_state.current_contour);
+            fill_state.contours.push(contour);
+            tracing::debug!(
+                turtle_id,
+                completed_contours = fill_state.contours.len(),
+                "Contour moved to completed list"
+            );
+        } else if !fill_state.current_contour.is_empty() {
+            tracing::warn!(
+                turtle_id,
+                vertices = fill_state.current_contour.len(),
+                "Current contour has insufficient vertices, not closing"
+            );
+        } else {
+            tracing::warn!(turtle_id, "Current contour is empty, nothing to close");
+        }
+    } else {
+        tracing::warn!(
+            turtle_id,
+            "close_fill_contour called but no active fill state"
+        );
+    }
+}
+
+/// Begin a new fill contour at `position` (factored out of `Turtle::start_fill_contour`).
+fn start_fill_contour(turtle_id: usize, position: Coordinate, filling: &mut Option<FillState>) {
+    if let Some(ref mut fill_state) = filling {
+        tracing::debug!(
+            x = position.x,
+            y = position.y,
+            completed_contours = fill_state.contours.len(),
+            turtle_id,
+            "Starting new contour"
+        );
+        fill_state.current_contour = vec![position];
+    }
+}
+
+/// Execute side effects for commands that don't involve movement.
+///
+/// Returns `true` if the command was fully handled; the caller should skip
+/// params-update and tessellation when this returns `true`.
+///
+/// Accepts the three logically-separate pieces of turtle state as disjoint
+/// mutable borrows so that this function can be called from
+/// `TweenController::update(&mut self, …)` without requiring a `&mut Turtle`.
 #[allow(clippy::too_many_lines)]
-pub(crate) fn execute_command_side_effects(command: &TurtleCommand, state: &mut Turtle) -> bool {
+pub(crate) fn execute_command_side_effects(
+    command: &TurtleCommand,
+    turtle_id: usize,
+    params: &mut TurtleParams,
+    filling: &mut Option<FillState>,
+    commands: &mut Vec<DrawCommand>,
+) -> bool {
     match command {
         TurtleCommand::BeginFill => {
-            if state.filling.is_some() {
-                tracing::warn!(
-                    turtle_id = state.turtle_id,
-                    "begin_fill() called while already filling"
-                );
+            if filling.is_some() {
+                tracing::warn!(turtle_id, "begin_fill() called while already filling");
             }
-            let fill_color = state.params.fill_color.unwrap_or_else(|| {
-                tracing::warn!(
-                    turtle_id = state.turtle_id,
-                    "No fill_color set, using black"
-                );
+            let fill_color = params.fill_color.unwrap_or_else(|| {
+                tracing::warn!(turtle_id, "No fill_color set, using black");
                 BLACK
             });
-            state.begin_fill(fill_color);
+            *filling = Some(FillState {
+                start_position: params.position,
+                contours: Vec::new(),
+                current_contour: vec![params.position],
+                fill_color,
+            });
             true
         }
         TurtleCommand::EndFill => {
-            if let Some(mut fill_state) = state.filling.take() {
+            if let Some(mut fill_state) = filling.take() {
                 if !fill_state.current_contour.is_empty() {
                     fill_state.contours.push(fill_state.current_contour);
                 }
 
                 let span = tracing::debug_span!(
                     "end_fill",
-                    turtle_id = state.turtle_id,
+                    turtle_id,
                     contours = fill_state.contours.len()
                 );
                 let _enter = span.enter();
 
                 for (i, contour) in fill_state.contours.iter().enumerate() {
                     tracing::debug!(
-                        turtle_id = state.turtle_id,
+                        turtle_id,
                         contour_idx = i,
                         vertices = contour.len(),
                         "Contour info"
@@ -59,83 +127,76 @@ pub(crate) fn execute_command_side_effects(command: &TurtleCommand, state: &mut 
                         fill_state.fill_color,
                     ) {
                         tracing::debug!(
-                            turtle_id = state.turtle_id,
+                            turtle_id,
                             contours = fill_state.contours.len(),
                             "Successfully created fill mesh - persisting to commands"
                         );
-                        state.commands.push(DrawCommand::Mesh {
+                        commands.push(DrawCommand::Mesh {
                             data: mesh_data,
                             source: crate::state::TurtleSource {
                                 command: crate::commands::TurtleCommand::EndFill,
-                                color: state.params.color,
+                                color: params.color,
                                 fill_color: fill_state.fill_color,
-                                pen_width: state.params.pen_width,
+                                pen_width: params.pen_width,
                                 start_position: fill_state.start_position,
                                 end_position: fill_state.start_position,
-                                start_heading: state.params.heading,
+                                start_heading: params.heading,
                                 contours: Some(fill_state.contours.clone()),
                             },
                         });
                     } else {
-                        tracing::error!(
-                            turtle_id = state.turtle_id,
-                            "Failed to tessellate contours"
-                        );
+                        tracing::error!(turtle_id, "Failed to tessellate contours");
                     }
                 }
             } else {
-                tracing::warn!(
-                    turtle_id = state.turtle_id,
-                    "end_fill() called without begin_fill()"
-                );
+                tracing::warn!(turtle_id, "end_fill() called without begin_fill()");
             }
             true
         }
         TurtleCommand::PenUp => {
-            state.params.pen_down = false;
-            if state.filling.is_some() {
-                tracing::debug!(
-                    turtle_id = state.turtle_id,
-                    "PenUp: Closing current contour"
-                );
+            params.pen_down = false;
+            if filling.is_some() {
+                tracing::debug!(turtle_id, "PenUp: Closing current contour");
             }
-            state.close_fill_contour();
+            close_fill_contour(turtle_id, filling);
             true
         }
         TurtleCommand::PenDown => {
-            state.params.pen_down = true;
-            if state.filling.is_some() {
+            params.pen_down = true;
+            if filling.is_some() {
                 tracing::debug!(
-                    turtle_id = state.turtle_id,
-                    x = state.params.position.x,
-                    y = state.params.position.y,
+                    turtle_id,
+                    x = params.position.x,
+                    y = params.position.y,
                     "PenDown: Starting new contour"
                 );
             }
-            state.start_fill_contour();
+            start_fill_contour(turtle_id, params.position, filling);
             true
         }
 
         TurtleCommand::Reset => {
-            state.reset();
+            commands.clear();
+            *filling = None;
+            *params = TurtleParams::default();
             true
         }
 
         TurtleCommand::WriteText { text, font_size } => {
-            state.commands.push(DrawCommand::Text {
+            commands.push(DrawCommand::Text {
                 text: text.clone(),
-                position: state.params.position,
-                heading: state.params.heading,
+                position: params.position,
+                heading: params.heading,
                 font_size: *font_size,
-                color: state.params.color,
+                color: params.color,
                 source: crate::state::TurtleSource {
                     command: command.clone(),
-                    color: state.params.color,
-                    fill_color: state.params.fill_color.unwrap_or(BLACK),
-                    pen_width: state.params.pen_width,
-                    start_position: state.params.position,
-                    end_position: state.params.position,
-                    start_heading: state.params.heading,
+                    color: params.color,
+                    fill_color: params.fill_color.unwrap_or(BLACK),
+                    pen_width: params.pen_width,
+                    start_position: params.position,
+                    end_position: params.position,
+                    start_heading: params.heading,
                     contours: None,
                 },
             });
@@ -157,14 +218,23 @@ pub(crate) fn execute_command_side_effects(command: &TurtleCommand, state: &mut 
     }
 }
 
-/// Record fill vertices after movement commands have updated state
-#[tracing::instrument]
+/// Record fill vertices after movement commands have updated state.
+///
+/// `start_state` is the params snapshot taken **before** the command ran.
+/// `params` is the current (post-movement) state — `params.position` is the
+/// endpoint that gets pushed into the active fill contour.
+///
+/// Accepts disjoint borrows so it can be called from `TweenController::update`
+/// without needing a `&mut Turtle`.
+#[tracing::instrument(skip(params, filling))]
 pub(crate) fn record_fill_vertices_after_movement(
     command: &TurtleCommand,
     start_state: &TurtleParams,
-    state: &mut Turtle,
+    turtle_id: usize,
+    params: &TurtleParams,
+    filling: &mut Option<FillState>,
 ) {
-    if state.filling.is_none() {
+    if filling.is_none() {
         return;
     }
 
@@ -181,17 +251,60 @@ pub(crate) fn record_fill_vertices_after_movement(
                 *radius,
                 *direction,
             );
-            state.record_fill_vertices_for_arc(
-                geom.center,
-                *radius,
-                geom.start_angle_from_center,
-                angle.to_radians(),
-                *direction,
-                *steps as u32,
-            );
+            if let Some(ref mut fill_state) = filling {
+                if params.pen_down {
+                    let num_samples = (*steps as u32).max(1);
+                    tracing::trace!(
+                        turtle_id,
+                        center_x = geom.center.x,
+                        center_y = geom.center.y,
+                        radius,
+                        steps,
+                        num_samples,
+                        "Recording arc vertices"
+                    );
+                    for i in 1..=num_samples {
+                        let progress = i as f32 / num_samples as f32;
+                        let current_angle = match direction {
+                            CircleDirection::Left => {
+                                geom.start_angle_from_center - angle.to_radians() * progress
+                            }
+                            CircleDirection::Right => {
+                                geom.start_angle_from_center + angle.to_radians() * progress
+                            }
+                        };
+                        let vertex = Coordinate::new(
+                            geom.center.x + radius * current_angle.cos(),
+                            geom.center.y + radius * current_angle.sin(),
+                        );
+                        tracing::trace!(
+                            turtle_id,
+                            vertex_idx = i,
+                            x = vertex.x,
+                            y = vertex.y,
+                            angle_degrees = current_angle.to_degrees(),
+                            "Arc vertex"
+                        );
+                        fill_state.current_contour.push(vertex);
+                    }
+                }
+            }
         }
         TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-            state.record_fill_vertex();
+            if let Some(ref mut fill_state) = filling {
+                if params.pen_down {
+                    tracing::trace!(
+                        turtle_id,
+                        x = params.position.x,
+                        y = params.position.y,
+                        vertices = fill_state.current_contour.len() + 1,
+                        "Adding vertex to current contour"
+                    );
+                    fill_state.current_contour.push(params.position);
+                } else {
+                    tracing::trace!(turtle_id, "Skipping vertex (pen is up)");
+                }
+            }
         }
         _ => {}
     }
@@ -283,12 +396,18 @@ pub(crate) fn tessellate_command(
     }
 }
 
-/// Execute a single turtle command, updating state and adding draw commands
-#[tracing::instrument]
+/// Execute a single turtle command, updating state and adding draw commands.
+#[tracing::instrument(skip(state))]
 pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
     // Phase 1: side effects (fills, pen contours, reset, text).
     // Returns true if the command is fully handled — no params update or tessellation needed.
-    if execute_command_side_effects(command, state) {
+    if execute_command_side_effects(
+        command,
+        state.turtle_id,
+        &mut state.params,
+        &mut state.filling,
+        &mut state.commands,
+    ) {
         return;
     }
 
@@ -297,7 +416,13 @@ pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
     command.apply_to_params(&mut state.params);
 
     // Phase 3: record fill vertices after movement (must follow params update)
-    record_fill_vertices_after_movement(command, &start_params, state);
+    record_fill_vertices_after_movement(
+        command,
+        &start_params,
+        state.turtle_id,
+        &state.params,
+        &mut state.filling,
+    );
 
     // Phase 4: tessellate and persist the committed drawing
     if let Some(draw_cmd) = tessellate_command(command, &start_params, state.params.position) {
@@ -305,20 +430,18 @@ pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
     }
 }
 
-/// Execute command on a specific turtle by ID
+/// Execute command on a specific turtle by ID.
+///
+/// There is no ownership conflict here: `execute_command` only needs `&mut Turtle`
+/// and never touches `TurtleWorld`, so we can obtain the mutable reference directly
+/// from `get_turtle_mut` without any intermediate clone.
 pub(crate) fn execute_command_with_id(
     command: &TurtleCommand,
     turtle_id: usize,
     world: &mut TurtleWorld,
 ) {
-    // Clone turtle state to avoid borrow checker issues
-    if let Some(turtle) = world.get_turtle(turtle_id) {
-        let mut state = turtle.clone();
-        execute_command(command, &mut state);
-        // Update the turtle state back
-        if let Some(turtle_mut) = world.get_turtle_mut(turtle_id) {
-            *turtle_mut = state;
-        }
+    if let Some(turtle) = world.get_turtle_mut(turtle_id) {
+        execute_command(command, turtle);
     }
 }
 
@@ -327,7 +450,7 @@ mod tests {
     use super::*;
     use crate::commands::TurtleCommand;
     use crate::shapes::TurtleShape;
-    use crate::TweenController;
+    use crate::tweening::TweenController;
 
     #[test]
     fn test_forward_left_forward() {

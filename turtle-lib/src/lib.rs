@@ -80,7 +80,6 @@ pub use macroquad::prelude::{
 
 use crate::commands_channel::TurtleCommandReceiver;
 use crate::state::TurtleWorld;
-use crate::tweening::TweenController;
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -292,10 +291,10 @@ impl TurtleApp {
 
         // Update all turtles' tween controllers
         for turtle in &mut self.world.turtles {
-            // Extract draw_commands and controller temporarily to avoid borrow conflicts
-
-            // Update the controller
-            let completed_commands = TweenController::update(turtle);
+            // Drive this turtle's animation controller for one frame.
+            // `update_tweens` splits &mut Turtle into disjoint field borrows so
+            // TweenController::update can be a proper &mut self method.
+            let completed_commands = turtle.update_tweens();
 
             // Process all completed commands and add to the turtle's commands
             for (completed_cmd, tween_start, end_state) in completed_commands {

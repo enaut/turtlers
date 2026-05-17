@@ -53,11 +53,14 @@ pub enum TurtleCommand {
     Reset,
 }
 
-/// Queue of turtle commands with execution state
+/// A pure-data sequence of turtle commands.
+///
+/// `CommandQueue` is intentionally *not* an `Iterator` — it carries no cursor
+/// state.  Execution state ("which command are we on?") belongs to the
+/// consumer; `TweenController` owns the cursor that walks this queue.
 #[derive(Clone, Debug)]
 pub struct CommandQueue {
     commands: Vec<TurtleCommand>,
-    current_index: usize,
 }
 
 impl CommandQueue {
@@ -65,14 +68,12 @@ impl CommandQueue {
     pub fn new() -> Self {
         Self {
             commands: Vec::new(),
-            current_index: 0,
         }
     }
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             commands: Vec::with_capacity(capacity),
-            current_index: 0,
         }
     }
 
@@ -83,25 +84,21 @@ impl CommandQueue {
     pub fn extend(&mut self, commands: impl IntoIterator<Item = TurtleCommand>) {
         self.commands.extend(commands);
     }
+
+    /// Return a reference to the command at `index`, or `None` if out of range.
     #[must_use]
-    pub fn is_complete(&self) -> bool {
-        self.current_index >= self.commands.len()
+    pub fn get(&self, index: usize) -> Option<&TurtleCommand> {
+        self.commands.get(index)
     }
-    pub fn reset(&mut self) {
-        self.current_index = 0;
-    }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.commands.len()
     }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
-    }
-
-    #[must_use]
-    pub fn remaining(&self) -> usize {
-        self.commands.len().saturating_sub(self.current_index)
     }
 }
 
@@ -111,16 +108,16 @@ impl Default for CommandQueue {
     }
 }
 
-impl Iterator for CommandQueue {
+/// Consuming iteration — yields every command in order.
+///
+/// This is used by `CommandQueue::extend` and `TweenController::append_commands`
+/// to drain one queue into another.  It does *not* imply that `CommandQueue`
+/// itself is stateful; the cursor always lives in the consumer.
+impl IntoIterator for CommandQueue {
     type Item = TurtleCommand;
+    type IntoIter = std::vec::IntoIter<TurtleCommand>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.commands.len() {
-            let cmd = self.commands[self.current_index].clone();
-            self.current_index += 1;
-            Some(cmd)
-        } else {
-            None
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        self.commands.into_iter()
     }
 }

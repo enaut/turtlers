@@ -106,6 +106,26 @@ impl Turtle {
         // Keep turtle_id and tween_controller (preserves queued commands)
     }
 
+    /// Drive the animation controller for one frame.
+    ///
+    /// Returns `(command, start_params, end_params)` for every command that
+    /// completed this frame and whose stroke needs to be tessellated by the
+    /// caller into a `DrawCommand`.
+    ///
+    /// This method performs the correct disjoint field-borrow split so that
+    /// `TweenController::update` can be a proper `&mut self` method instead
+    /// of the old static-method borrow-checker workaround.
+    pub fn update_tweens(
+        &mut self,
+    ) -> Vec<(crate::commands::TurtleCommand, TurtleParams, TurtleParams)> {
+        self.tween_controller.update(
+            self.turtle_id,
+            &mut self.params,
+            &mut self.filling,
+            &mut self.commands,
+        )
+    }
+
     /// Start recording fill vertices
     pub fn begin_fill(&mut self, fill_color: Color) {
         self.filling = Some(FillState {

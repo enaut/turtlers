@@ -3,7 +3,7 @@
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::{CommandQueue, TurtleCommand};
 use crate::general::AnimationSpeed;
-use crate::state::{Turtle, TurtleParams};
+use crate::state::{DrawCommand, FillState, TurtleParams};
 use macroquad::prelude::*;
 use tween::{CubicInOut, TweenValue, Tweener};
 
@@ -47,6 +47,10 @@ impl From<TweenVec2> for Vec2 {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct TweenController {
     queue: CommandQueue,
+    /// Cursor into `queue` — tracks which command executes next.
+    /// Lives here, not in `CommandQueue`, so that cloning or appending to the
+    /// queue never silently resets or mid-stream-shifts the execution position.
+    cursor: usize,
     current_tween: Option<CommandTween>,
     speed: AnimationSpeed,
 }
@@ -71,6 +75,7 @@ impl TweenController {
     pub fn new(queue: CommandQueue, speed: AnimationSpeed) -> Self {
         Self {
             queue,
+            cursor: 0,
             current_tween: None,
             speed,
         }
@@ -80,51 +85,71 @@ impl TweenController {
         self.speed = speed;
     }
 
-    /// Append commands to the queue
+    /// Append commands to the queue.
+    ///
+    /// The cursor is **not** reset — commands already consumed remain consumed,
+    /// and the new commands are picked up naturally as the cursor advances.
     pub fn append_commands(&mut self, new_queue: CommandQueue) {
         self.queue.extend(new_queue);
     }
 
-    /// Update the tween, returns `Vec` of (`command`, `start_state`, `end_state`) for all completed commands this frame
-    /// Also takes commands vec to handle side effects like fill operations
-    /// Each `command` has its own `start_state` and `end_state` pair
+    /// Drive the animation controller for one frame.
+    ///
+    /// Returns `(command, start_params, end_params)` for every command that
+    /// completed this frame and whose stroke needs to be tessellated by the
+    /// caller.
+    ///
+    /// By accepting `params`, `filling`, and `commands` as separate mutable
+    /// borrows the caller can split `&mut Turtle` into disjoint field borrows,
+    /// eliminating the old static-method borrow-checker workaround.
     #[allow(clippy::too_many_lines)]
-    pub fn update(state: &mut Turtle) -> Vec<(TurtleCommand, TurtleParams, TurtleParams)> {
+    pub fn update(
+        &mut self,
+        turtle_id: usize,
+        params: &mut TurtleParams,
+        filling: &mut Option<FillState>,
+        commands: &mut Vec<DrawCommand>,
+    ) -> Vec<(TurtleCommand, TurtleParams, TurtleParams)> {
         // In instant mode, execute commands up to the draw calls per frame limit
-        if let AnimationSpeed::Instant(max_draw_calls) = state.tween_controller.speed {
+        if let AnimationSpeed::Instant(max_draw_calls) = self.speed {
             let mut completed_commands: Vec<(TurtleCommand, TurtleParams, TurtleParams)> =
                 Vec::new();
             let mut draw_call_count = 0;
 
-            // Consume commands from the real queue so the current_index advances
-            while let Some(command) = state.tween_controller.queue.next() {
+            // Advance cursor through the queue for each command consumed
+            while let Some(command) = self.queue.get(self.cursor).cloned() {
+                self.cursor += 1;
                 // Handle SetSpeed command to potentially switch modes
                 if let TurtleCommand::SetSpeed(new_speed) = &command {
-                    state.params.speed = *new_speed;
-                    state.tween_controller.speed = *new_speed;
-                    if matches!(state.tween_controller.speed, AnimationSpeed::Animated(_)) {
+                    params.speed = *new_speed;
+                    self.speed = *new_speed;
+                    if matches!(self.speed, AnimationSpeed::Animated(_)) {
                         break;
                     }
                     continue;
                 }
 
                 // Execute side-effect-only commands using centralized helper
-                if crate::execution::execute_command_side_effects(&command, state) {
+                if crate::execution::execute_command_side_effects(
+                    &command, turtle_id, params, filling, commands,
+                ) {
                     continue; // Command fully handled
                 }
 
                 // Save start state and compute target state
-                let start_params = state.params.clone();
+                let start_params = params.clone();
                 let target_params = Self::calculate_target_state(&start_params, &command);
 
                 // Update state to the target (instant execution)
-                state.params = target_params.clone();
+                *params = target_params.clone();
 
                 // Record fill vertices AFTER movement
                 crate::execution::record_fill_vertices_after_movement(
                     &command,
                     &start_params,
-                    state,
+                    turtle_id,
+                    params,
+                    filling,
                 );
 
                 // Collect drawable commands (return start and target so caller can create draw meshes)
@@ -141,7 +166,7 @@ impl TweenController {
         }
 
         // Process current tween
-        if let Some(ref mut tween) = state.tween_controller.current_tween {
+        if let Some(ref mut tween) = self.current_tween {
             let elapsed = get_time() - tween.start_time;
 
             // Use tweeners to calculate current values
@@ -170,7 +195,7 @@ impl TweenController {
                 }
             };
 
-            state.params.position = current_position;
+            params.position = current_position;
             tween.current_position = current_position;
 
             // Heading changes proportionally with progress for all commands
@@ -195,18 +220,18 @@ impl TweenController {
                 }
             });
 
-            state.params.heading = current_heading;
+            params.heading = current_heading;
             tween.current_heading = current_heading;
-            state.params.pen_width = tween.pen_width_tweener.move_to(elapsed);
+            params.pen_width = tween.pen_width_tweener.move_to(elapsed);
 
             // Discrete properties (switch at 50% progress)
             let progress = (elapsed / tween.duration).min(1.0);
             if progress >= 0.5 {
-                state.params.pen_down = tween.target_params.pen_down;
-                state.params.color = tween.target_params.color;
-                state.params.fill_color = tween.target_params.fill_color;
-                state.params.visible = tween.target_params.visible;
-                state.params.shape = tween.target_params.shape.clone();
+                params.pen_down = tween.target_params.pen_down;
+                params.color = tween.target_params.color;
+                params.fill_color = tween.target_params.fill_color;
+                params.visible = tween.target_params.visible;
+                params.shape = tween.target_params.shape.clone();
             }
 
             // Check if tween is finished (use heading_tweener as it's used by all commands)
@@ -215,20 +240,24 @@ impl TweenController {
                 let target_params = tween.target_params.clone();
                 let command = tween.command.clone();
 
-                // Drop the mutable borrow of tween before mutably borrowing state
-                state.params = target_params.clone();
+                // tween borrow ends here (NLL) — safe to reassign self.current_tween below
+                *params = target_params.clone();
 
                 crate::execution::record_fill_vertices_after_movement(
                     &command,
                     &start_params,
-                    state,
+                    turtle_id,
+                    params,
+                    filling,
                 );
 
-                state.tween_controller.current_tween = None;
+                self.current_tween = None;
 
                 // Execute side-effect-only commands using centralized helper
-                if crate::execution::execute_command_side_effects(&command, state) {
-                    return Self::update(state); // Continue to next command
+                if crate::execution::execute_command_side_effects(
+                    &command, turtle_id, params, filling, commands,
+                ) {
+                    return self.update(turtle_id, params, filling, commands);
                 }
 
                 // Return drawable commands using the original start and target params
@@ -236,43 +265,45 @@ impl TweenController {
                     return vec![(command, start_params.clone(), target_params.clone())];
                 }
 
-                return Self::update(state); // Continue to next command
+                return self.update(turtle_id, params, filling, commands);
             }
 
             return Vec::new();
         }
 
         // Start next tween
-        if let Some(command) = state.tween_controller.queue.next() {
-            let command_clone = command.clone();
+        if let Some(command) = self.queue.get(self.cursor).cloned() {
+            self.cursor += 1;
 
             // Handle commands that should execute immediately (no animation)
-            match &command_clone {
+            match &command {
                 TurtleCommand::SetSpeed(new_speed) => {
-                    state.set_speed(*new_speed);
-                    state.tween_controller.speed = *new_speed;
-                    if matches!(state.tween_controller.speed, AnimationSpeed::Instant(_)) {
-                        return Self::update(state);
+                    params.speed = *new_speed;
+                    self.speed = *new_speed;
+                    if matches!(self.speed, AnimationSpeed::Instant(_)) {
+                        return self.update(turtle_id, params, filling, commands);
                     }
-                    return Self::update(state);
+                    return self.update(turtle_id, params, filling, commands);
                 }
                 _ => {
                     // Use centralized helper for side effects
-                    if crate::execution::execute_command_side_effects(&command_clone, state) {
-                        return Self::update(state);
+                    if crate::execution::execute_command_side_effects(
+                        &command, turtle_id, params, filling, commands,
+                    ) {
+                        return self.update(turtle_id, params, filling, commands);
                     }
                 }
             }
 
-            let speed = state.tween_controller.speed; // Extract speed before borrowing self
-            let duration = Self::calculate_duration_with_state(&command_clone, state, speed);
+            let speed = self.speed;
+            let duration = Self::calculate_duration_with_state(&command, params, speed);
 
             // Calculate target state
-            let target_state = Self::calculate_target_state(&state.params, &command_clone);
+            let target_state = Self::calculate_target_state(params, &command);
 
             // Create tweeners for smooth animation
             let position_tweener = Tweener::new(
-                TweenVec2::from(state.params.position),
+                TweenVec2::from(params.position),
                 TweenVec2::from(target_state.position),
                 duration,
                 CubicInOut,
@@ -284,21 +315,21 @@ impl TweenController {
             );
 
             let pen_width_tweener = Tweener::new(
-                state.params.pen_width,
+                params.pen_width,
                 target_state.pen_width,
                 duration,
                 CubicInOut,
             );
 
-            state.tween_controller.current_tween = Some(CommandTween {
-                turtle_id: state.turtle_id,
-                command: command_clone,
+            self.current_tween = Some(CommandTween {
+                turtle_id,
+                command,
                 start_time: get_time(),
                 duration,
-                start_params: state.params.clone(),
+                start_params: params.clone(),
                 target_params: target_state.clone(),
-                current_position: state.params.position,
-                current_heading: state.params.heading,
+                current_position: params.position,
+                current_heading: params.heading,
                 position_tweener,
                 heading_tweener,
                 pen_width_tweener,
@@ -310,7 +341,7 @@ impl TweenController {
 
     #[must_use]
     pub fn is_complete(&self) -> bool {
-        self.current_tween.is_none() && self.queue.is_complete()
+        self.current_tween.is_none() && self.cursor >= self.queue.len()
     }
 
     /// Get the current active tween if one is in progress
@@ -324,10 +355,10 @@ impl TweenController {
 
     fn calculate_duration_with_state(
         command: &TurtleCommand,
-        current: &Turtle,
+        params: &TurtleParams,
         speed: AnimationSpeed,
     ) -> f64 {
-        command.animation_duration(&current.params, speed)
+        command.animation_duration(params, speed)
     }
 
     fn calculate_target_state(current: &TurtleParams, command: &TurtleCommand) -> TurtleParams {
