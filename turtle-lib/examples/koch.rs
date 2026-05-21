@@ -20,7 +20,7 @@ fn koch(depth: u32, turtle: &mut TurtlePlan, distance: f32) {
 #[turtle_main("Koch Snowflake")]
 fn draw(turtle: &mut TurtlePlan) {
     // Position turtle
-    turtle.set_speed(1001);
+    turtle.set_speed(5000);
     turtle.pen_up();
     turtle.backward(150.0);
 
@@ -28,7 +28,7 @@ fn draw(turtle: &mut TurtlePlan) {
 
     // Draw Koch snowflake (triangle of Koch curves)
     for _ in 0..3 {
-        koch(4, turtle, 300.0);
+        koch(6, turtle, 300.0);
         turtle.right(120.0);
         turtle.set_speed(1200);
     }

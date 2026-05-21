@@ -23,5 +23,6 @@ fn draw(turtle: &mut TurtlePlan) {
         .left(90.0)
         .pen_down()
         .circle_right(8.0, 360.0, 12)
-        .end_fill();
+        .end_fill()
+        .hide();
 }
