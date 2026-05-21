@@ -176,41 +176,32 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                     } = &tween.command
                     {
                         // Calculate partial arc vertices based on current progress
-                        use crate::circle_geometry::CircleGeometry;
+                        use crate::circle_geometry::{arc_points, CircleGeometry};
                         use crate::general::Radians;
                         let geom = CircleGeometry::new(
                             tween.start_params.position,
                             Radians::new(tween.start_params.heading),
                             *radius,
                             *direction,
-                        ); // Calculate progress
+                        );
                         let elapsed = get_time() - tween.start_time;
                         let progress = (elapsed / tween.duration).min(1.0);
                         let eased_progress = CubicInOut.tween(1.0, progress as f32);
 
-                        // Generate arc vertices for the partial arc
-                        let num_samples = *steps.max(&1);
+                        // Delegate to the shared arc_points function — same sampling
+                        // strategy as tessellate_arc, eliminating the divergence.
                         let samples_to_draw =
-                            ((num_samples as f32 * eased_progress) as usize).max(1);
-
-                        for i in 1..=samples_to_draw {
-                            let sample_progress = i as f32 / num_samples as f32;
-                            let current_angle = match direction {
-                                crate::circle_geometry::CircleDirection::Left => {
-                                    geom.start_angle_from_center
-                                        - angle.as_radians().value() * sample_progress
-                                }
-                                crate::circle_geometry::CircleDirection::Right => {
-                                    geom.start_angle_from_center
-                                        + angle.as_radians().value() * sample_progress
-                                }
-                            };
-
-                            let vertex = Vec2::new(
-                                geom.center.x + radius * current_angle.cos(),
-                                geom.center.y + radius * current_angle.sin(),
-                            );
-                            current_preview.push(vertex);
+                            (((*steps).max(1) as f32 * eased_progress) as usize).max(1);
+                        let sweep_so_far = angle.as_radians().value() * eased_progress;
+                        for pt in arc_points(
+                            geom.center,
+                            *radius,
+                            geom.start_angle_from_center,
+                            sweep_so_far,
+                            samples_to_draw,
+                            *direction,
+                        ) {
+                            current_preview.push(pt);
                         }
                     } else if matches!(
                         &tween.command,

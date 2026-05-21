@@ -69,14 +69,15 @@ pub mod svg_export {
                                     ..
                                 } => {
                                     use crate::circle_geometry::CircleGeometry;
+                                    use crate::general::Radians;
                                     let geom = CircleGeometry::new(
                                         source.start_position,
-                                        source.start_heading,
+                                        Radians::new(source.start_heading),
                                         *radius,
                                         *direction,
                                     );
                                     let center = geom.center;
-                                    if (*angle - 360.0).abs() < 1e-3 {
+                                    if (angle.value() - 360.0).abs() < 1e-3 {
                                         // Voller Kreis
                                         update_bounds(
                                             &mut min_x,
@@ -123,7 +124,7 @@ pub mod svg_export {
                                             center.x + radius,
                                             center.y + radius,
                                         );
-                                        let large_arc = if *angle > 180.0 { 1 } else { 0 };
+                                        let large_arc = if angle.value() > 180.0 { 1 } else { 0 };
                                         let sweep = match direction {
                                             crate::circle_geometry::CircleDirection::Left => 0,
                                             crate::circle_geometry::CircleDirection::Right => 1,

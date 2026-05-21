@@ -309,40 +309,32 @@ pub(crate) fn tessellate_arc(
     segments: usize,
     direction: crate::circle_geometry::CircleDirection,
 ) -> Result<MeshData, Box<dyn std::error::Error>> {
-    // Build arc path manually from segments
-    let mut builder = Path::builder();
+    use crate::circle_geometry::arc_points;
 
     let start_angle = start_angle_degrees.to_radians();
-    let arc_angle = arc_angle_degrees.to_radians();
-    let step = arc_angle / segments as f32;
+    let sweep_angle = arc_angle_degrees.to_radians();
 
-    // Calculate first point
-    let first_point = point(
+    let mut builder = Path::builder();
+
+    // Start point of the arc (arc_points returns everything *after* this)
+    builder.begin(point(
         center.x + radius * start_angle.cos(),
         center.y + radius * start_angle.sin(),
-    );
-    builder.begin(first_point);
+    ));
 
-    // Add remaining points - direction matters!
-    for i in 1..=segments {
-        let angle = match direction {
-            crate::circle_geometry::CircleDirection::Left => {
-                // Counter-clockwise: subtract angle
-                start_angle - step * i as f32
-            }
-            crate::circle_geometry::CircleDirection::Right => {
-                // Clockwise: add angle
-                start_angle + step * i as f32
-            }
-        };
-        let pt = point(
-            center.x + radius * angle.cos(),
-            center.y + radius * angle.sin(),
-        );
-        builder.line_to(pt);
+    // Remaining points — single source of truth for arc sampling
+    for pt in arc_points(
+        center,
+        radius,
+        start_angle,
+        sweep_angle,
+        segments,
+        direction,
+    ) {
+        builder.line_to(point(pt.x, pt.y));
     }
 
-    builder.end(false); // Don't close the arc
+    builder.end(false); // open arc, not a closed polygon
     let path = builder.build();
 
     // Tessellate stroke

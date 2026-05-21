@@ -3,6 +3,41 @@
 use crate::general::Radians;
 use macroquad::prelude::*;
 
+/// Generate evenly-spaced points along a circular arc.
+///
+/// Returns exactly `steps` points, uniformly distributed from (not including)
+/// the arc start to (including) the arc end.  This is the **single source of
+/// truth** for arc sampling used by tessellation, tween stroke drawing, and
+/// fill-polygon preview.
+///
+/// # Arguments
+/// * `center`      — centre of the circle
+/// * `radius`      — arc radius
+/// * `start_angle` — angle from `center` to the turtle's start position (radians)
+/// * `sweep_angle` — total arc sweep in radians (absolute; sign comes from `direction`)
+/// * `steps`       — number of sample points (clamped to ≥ 1)
+/// * `direction`   — which way the arc curves
+pub(crate) fn arc_points(
+    center: Vec2,
+    radius: f32,
+    start_angle: f32,
+    sweep_angle: f32,
+    steps: usize,
+    direction: CircleDirection,
+) -> Vec<Vec2> {
+    let n = steps.max(1);
+    let step_size = sweep_angle / n as f32;
+    (1..=n)
+        .map(|i| {
+            let a = match direction {
+                CircleDirection::Left => start_angle - step_size * i as f32,
+                CircleDirection::Right => start_angle + step_size * i as f32,
+            };
+            Vec2::new(center.x + radius * a.cos(), center.y + radius * a.sin())
+        })
+        .collect()
+}
+
 /// Direction of circular motion (in screen coordinates with Y-down)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CircleDirection {
