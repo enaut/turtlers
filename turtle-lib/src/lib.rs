@@ -215,7 +215,7 @@ impl TurtleApp {
     ///
     /// Speed is controlled by `SetSpeed` commands in the queue.
     /// Use `set_speed()` on the turtle plan to set animation speed.
-    /// Speed >= 999 = instant mode, speed < 999 = animated mode.
+    /// Speed >= 1000 = instant mode, speed < 1000 = animated mode.
     ///
     /// # Arguments
     /// * `queue` - The command queue to execute
@@ -228,7 +228,7 @@ impl TurtleApp {
     ///
     /// Speed is controlled by `SetSpeed` commands in the queue.
     /// Use `set_speed()` on the turtle plan to set animation speed.
-    /// Speed >= 999 = instant mode, speed < 999 = animated mode.
+    /// Speed >= 1000 = instant mode, speed < 1000 = animated mode.
     ///
     /// # Arguments
     /// * `turtle_id` - The ID of the turtle to control
