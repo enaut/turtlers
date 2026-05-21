@@ -1,4 +1,4 @@
-//! Export-Backend-Trait und zentrale Export-Typen
+//! Export backend trait and core export types.
 
 use crate::state::TurtleWorld;
 use crate::TurtlePlan;
@@ -7,14 +7,14 @@ use crate::TurtlePlan;
 pub enum ExportError {
     Io(std::io::Error),
     Format(String),
-    // Weitere Formate können ergänzt werden
+    // Additional formats can be added here.
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum DrawingFormat {
     #[cfg(feature = "svg")]
     Svg,
-    // Weitere Formate wie Png, Pdf, ...
+    // Additional formats: Png, Pdf, …
 }
 
 pub(crate) trait DrawingExporter {

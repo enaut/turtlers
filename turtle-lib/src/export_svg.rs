@@ -1,4 +1,4 @@
-//! SVG-Export-Backend für TurtleWorld
+//! SVG export backend for `TurtleWorld`.
 
 #[cfg(feature = "svg")]
 pub mod svg_export {
@@ -42,7 +42,7 @@ pub mod svg_export {
                         DrawCommand::Mesh { source, .. } => {
                             match &source.command {
                                 TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-                                    // Linie als <line>
+                                    // Straight line — emit as SVG <line>
                                     let start = source.start_position;
                                     let end = source.end_position;
                                     update_bounds(
@@ -78,7 +78,7 @@ pub mod svg_export {
                                     );
                                     let center = geom.center;
                                     if (angle.value() - 360.0).abs() < 1e-3 {
-                                        // Voller Kreis
+                                        // Full circle — emit as SVG <circle>
                                         update_bounds(
                                             &mut min_x,
                                             &mut max_x,
@@ -104,7 +104,7 @@ pub mod svg_export {
                                             .set("fill", "none");
                                         doc = doc.add(circle);
                                     } else {
-                                        // Kreisbogen als <path>
+                                        // Partial arc — emit as SVG <path> with A command
                                         let start = source.start_position;
                                         let end = source.end_position;
                                         // For arcs, include the full circle bounds to ensure complete visibility
@@ -149,7 +149,7 @@ pub mod svg_export {
                                     }
                                 }
                                 TurtleCommand::EndFill => {
-                                    // Fills werden als <path> mit Konturen ausgegeben
+                                    // Fill contours — emit as SVG <path> with evenodd fill rule
                                     if let Some(contours) = &source.contours {
                                         for contour in contours {
                                             for point in contour {
@@ -187,7 +187,7 @@ pub mod svg_export {
                                             doc = doc.add(path);
                                         }
                                     } else {
-                                        // Fallback: Dummy-Polygon
+                                        // Fallback: no contour data — emit a dummy polygon
                                         update_bounds(
                                             &mut min_x,
                                             &mut max_x,

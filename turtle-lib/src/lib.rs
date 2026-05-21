@@ -63,7 +63,7 @@ pub(crate) mod tweening;
 pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
 pub use commands::{CommandQueue, TurtleCommand};
 pub use commands_channel::TurtleCommandSender;
-pub use general::{Degrees, Radians, AnimationSpeed, Color, Coordinate, Length, Precision};
+pub use general::{AnimationSpeed, Color, Coordinate, Degrees, Length, Precision, Radians};
 pub use shapes::{ShapeType, TurtleShape};
 
 pub mod export;
@@ -96,9 +96,7 @@ pub struct TurtleApp {
 }
 
 impl TurtleApp {
-    /// Exportiere das aktuelle Drawing in das gewünschte Format
-    #[allow(unused_variables)]
-    /// Export the current drawing to a file in the specified format
+    /// Export the current drawing to a file in the specified format.
     ///
     /// # Errors
     ///
@@ -116,10 +114,10 @@ impl TurtleApp {
                 let exporter = SvgExporter;
                 exporter.export(&self.world, filename)
             }
-            // Weitere Formate können hier ergänzt werden
+            // Additional formats can be registered here.
             #[allow(unreachable_patterns)]
             _ => Err(export::ExportError::Format(
-                "Export-Format nicht unterstützt".to_string(),
+                "Unsupported export format".to_string(),
             )),
         }
     }

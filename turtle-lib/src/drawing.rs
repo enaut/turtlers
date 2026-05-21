@@ -12,54 +12,7 @@ use macroquad::prelude::*;
 // See https://easings.net/ for visual demonstrations
 use tween::CubicInOut;
 
-/// Render the entire turtle world
-pub(crate) fn render_world(world: &TurtleWorld) {
-    // Update camera zoom based on current screen size to prevent stretching
-    let camera = Camera2D {
-        zoom: vec2(1.0 / screen_width() * 2.0, 1.0 / screen_height() * 2.0),
-        target: world.camera.target,
-        ..Default::default()
-    };
-
-    // Set camera
-    set_camera(&camera);
-
-    // Draw all accumulated commands from all turtles
-    for turtle in &world.turtles {
-        for cmd in &turtle.commands {
-            match cmd {
-                DrawCommand::Mesh { data, source: _ } => {
-                    // Rendering wie bisher
-                    draw_mesh(&data.to_mesh());
-                    // Hier könnte man das source für Debug/Export loggen
-                }
-                DrawCommand::Text {
-                    text,
-                    position,
-                    heading,
-                    font_size,
-                    color,
-                    source: _,
-                } => {
-                    draw_text_command(text, *position, *heading, *font_size, *color);
-                    // Hier könnte man das source für Debug/Export loggen
-                }
-            }
-        }
-    }
-
-    // Draw all visible turtles
-    for turtle in &world.turtles {
-        if turtle.params.visible {
-            draw_turtle(&turtle.params);
-        }
-    }
-
-    // Reset to default camera
-    set_default_camera();
-}
-
-/// Render the turtle world with active tween visualization
+/// Render the turtle world with active tween visualization.
 #[allow(clippy::too_many_lines)]
 pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     // Update camera zoom based on current screen size to prevent stretching
