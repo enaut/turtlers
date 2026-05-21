@@ -81,6 +81,7 @@ pub(crate) fn execute_command_side_effects(
     params: &mut TurtleParams,
     filling: &mut Option<FillState>,
     commands: &mut Vec<DrawCommand>,
+    svg_log: &mut crate::state::SvgLog,
 ) -> bool {
     match command {
         TurtleCommand::BeginFill => {
@@ -131,18 +132,12 @@ pub(crate) fn execute_command_side_effects(
                             contours = fill_state.contours.len(),
                             "Successfully created fill mesh - persisting to commands"
                         );
-                        commands.push(DrawCommand::Mesh {
-                            data: mesh_data,
-                            source: crate::state::TurtleSource {
-                                command: crate::commands::TurtleCommand::EndFill,
-                                color: params.color,
-                                fill_color: fill_state.fill_color,
-                                pen_width: params.pen_width,
-                                start_position: fill_state.start_position,
-                                end_position: fill_state.start_position,
-                                start_heading: params.heading,
-                                contours: Some(fill_state.contours.clone()),
-                            },
+                        commands.push(DrawCommand::Mesh { data: mesh_data });
+                        #[cfg(feature = "svg")]
+                        svg_log.push(crate::state::SvgRecord::Fill {
+                            contours: fill_state.contours,
+                            fill_color: fill_state.fill_color,
+                            stroke_color: params.color,
                         });
                     } else {
                         tracing::error!(turtle_id, "Failed to tessellate contours");
@@ -177,6 +172,7 @@ pub(crate) fn execute_command_side_effects(
 
         TurtleCommand::Reset => {
             commands.clear();
+            svg_log.clear();
             *filling = None;
             *params = TurtleParams::default();
             true
@@ -189,16 +185,12 @@ pub(crate) fn execute_command_side_effects(
                 heading: params.heading,
                 font_size: *font_size,
                 color: params.color,
-                source: crate::state::TurtleSource {
-                    command: command.clone(),
-                    color: params.color,
-                    fill_color: params.fill_color.unwrap_or(BLACK),
-                    pen_width: params.pen_width,
-                    start_position: params.position,
-                    end_position: params.position,
-                    start_heading: params.heading,
-                    contours: None,
-                },
+            });
+            #[cfg(feature = "svg")]
+            svg_log.push(crate::state::SvgRecord::Text {
+                text: text.clone(),
+                position: params.position,
+                color: params.color,
             });
             true
         }
@@ -340,19 +332,7 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh {
-                data: mesh_data,
-                source: crate::state::TurtleSource {
-                    command: command.clone(),
-                    color: start.color,
-                    fill_color: start.fill_color.unwrap_or(BLACK),
-                    pen_width: start.pen_width,
-                    start_position: start.position,
-                    end_position,
-                    start_heading: start.heading,
-                    contours: None,
-                },
-            })
+            Some(DrawCommand::Mesh { data: mesh_data })
         }
 
         TurtleCommand::Circle {
@@ -380,24 +360,54 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh {
-                data: mesh_data,
-                source: crate::state::TurtleSource {
-                    command: command.clone(),
-                    color: start.color,
-                    fill_color: start.fill_color.unwrap_or(BLACK),
-                    pen_width: start.pen_width,
-                    start_position: start.position,
-                    end_position,
-                    start_heading: start.heading,
-                    contours: None,
-                },
-            })
+            Some(DrawCommand::Mesh { data: mesh_data })
         }
 
         // `produces_drawing()` guards entry — this arm is only reachable if
         // `produces_drawing` and the match above diverge, which would be a bug.
         _ => None,
+    }
+}
+
+/// Push an [`SvgRecord`] for a completed line or arc drawing command.
+///
+/// Only compiled when the `svg` feature is enabled.
+/// Must be called at the same call sites as `tessellate_command` so that
+/// `svg_log` stays in sync with `commands`.
+#[cfg(feature = "svg")]
+pub(crate) fn push_svg_for_draw(
+    command: &TurtleCommand,
+    start: &TurtleParams,
+    end_position: Vec2,
+    svg_log: &mut crate::state::SvgLog,
+) {
+    use crate::state::SvgRecord;
+    match command {
+        TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
+            svg_log.push(SvgRecord::Line {
+                start: start.position,
+                end: end_position,
+                color: start.color,
+                pen_width: start.pen_width,
+            });
+        }
+        TurtleCommand::Circle {
+            radius,
+            angle,
+            direction,
+            ..
+        } => {
+            svg_log.push(SvgRecord::Arc {
+                start_position: start.position,
+                start_heading: start.heading,
+                radius: *radius,
+                angle: *angle,
+                direction: *direction,
+                color: start.color,
+                pen_width: start.pen_width,
+            });
+        }
+        _ => {}
     }
 }
 
@@ -412,6 +422,7 @@ pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
         &mut state.params,
         &mut state.filling,
         &mut state.commands,
+        &mut state.svg_log,
     ) {
         return;
     }
@@ -429,8 +440,15 @@ pub(crate) fn execute_command(command: &TurtleCommand, state: &mut Turtle) {
         &mut state.filling,
     );
 
-    // Phase 4: tessellate and persist the committed drawing
+    // Phase 4: tessellate, push SVG record, and persist the committed drawing
     if let Some(draw_cmd) = tessellate_command(command, &start_params, state.params.position) {
+        #[cfg(feature = "svg")]
+        push_svg_for_draw(
+            command,
+            &start_params,
+            state.params.position,
+            &mut state.svg_log,
+        );
         state.commands.push(draw_cmd);
     }
 }
@@ -479,6 +497,7 @@ mod tests {
             },
             filling: None,
             commands: Vec::new(),
+            svg_log: crate::state::SvgLog::default(),
             tween_controller: TweenController::default(),
         };
 

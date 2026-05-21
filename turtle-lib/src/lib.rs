@@ -299,6 +299,13 @@ impl TurtleApp {
                 if let Some(draw_cmd) =
                     execution::tessellate_command(&completed_cmd, &tween_start, end_state.position)
                 {
+                    #[cfg(feature = "svg")]
+                    execution::push_svg_for_draw(
+                        &completed_cmd,
+                        &tween_start,
+                        end_state.position,
+                        &mut turtle.svg_log,
+                    );
                     turtle.commands.push(draw_cmd);
                 }
             }

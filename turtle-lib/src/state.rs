@@ -66,6 +66,9 @@ pub(crate) struct Turtle {
     // Drawing commands created by this turtle
     pub(crate) commands: Vec<DrawCommand>,
 
+    // SVG draw-event log — populated alongside `commands`, consumed by the SVG exporter
+    pub(crate) svg_log: SvgLog,
+
     // Animation controller for this turtle
     pub(crate) tween_controller: TweenController,
 }
@@ -77,6 +80,7 @@ impl Default for Turtle {
             params: TurtleParams::default(),
             filling: None,
             commands: Vec::new(),
+            svg_log: SvgLog::default(),
             tween_controller: TweenController::new(CommandQueue::new(), AnimationSpeed::default()),
         }
     }
@@ -96,6 +100,7 @@ impl Turtle {
     pub fn reset(&mut self) {
         // Clear all drawings
         self.commands.clear();
+        self.svg_log.clear();
 
         // Clear fill state
         self.filling = None;
@@ -123,6 +128,7 @@ impl Turtle {
             &mut self.params,
             &mut self.filling,
             &mut self.commands,
+            &mut self.svg_log,
         )
     }
 
@@ -277,6 +283,70 @@ impl Turtle {
     }
 }
 
+/// The draw-event log for SVG export.
+///
+/// When the `svg` feature is **disabled** this is a zero-sized type (ZST) with
+/// no fields — it compiles away entirely and adds zero overhead to `Turtle`.
+/// When the feature is **enabled** it owns a `Vec<SvgRecord>` that the SVG
+/// exporter consumes after rendering.
+///
+/// All methods are always callable so function signatures that accept
+/// `&mut SvgLog` need no feature-gating at the parameter level.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SvgLog {
+    #[cfg(feature = "svg")]
+    pub(crate) records: Vec<SvgRecord>,
+}
+
+impl SvgLog {
+    pub(crate) fn clear(&mut self) {
+        #[cfg(feature = "svg")]
+        self.records.clear();
+    }
+
+    #[cfg(feature = "svg")]
+    pub(crate) fn push(&mut self, record: SvgRecord) {
+        self.records.push(record);
+    }
+}
+
+/// A drawing event captured for SVG export.
+///
+/// Only compiled when the `svg` feature is enabled.
+#[cfg(feature = "svg")]
+#[derive(Clone, Debug)]
+pub(crate) enum SvgRecord {
+    /// A straight-line stroke.
+    Line {
+        start: Vec2,
+        end: Vec2,
+        color: Color,
+        pen_width: f32,
+    },
+    /// An arc or full-circle stroke.
+    Arc {
+        start_position: Vec2,
+        start_heading: f32,
+        radius: crate::general::Precision,
+        angle: crate::general::Degrees,
+        direction: crate::circle_geometry::CircleDirection,
+        color: Color,
+        pen_width: f32,
+    },
+    /// A filled region (potentially with holes via the even-odd rule).
+    Fill {
+        contours: Vec<Vec<crate::general::Coordinate>>,
+        fill_color: Color,
+        stroke_color: Color,
+    },
+    /// A text element.
+    Text {
+        text: String,
+        position: Vec2,
+        color: Color,
+    },
+}
+
 /// Cached mesh data that can be cloned and converted to Mesh when needed
 #[derive(Clone, Debug)]
 pub(crate) struct MeshData {
@@ -295,35 +365,19 @@ impl MeshData {
     }
 }
 
-/// Drawable elements in the world
-/// All drawing is done via Lyon-tessellated meshes for consistency and quality
-#[derive(Clone, Debug)]
-pub(crate) struct TurtleSource {
-    pub(crate) command: crate::commands::TurtleCommand,
-    pub(crate) color: Color,
-    pub(crate) fill_color: Color,
-    pub(crate) pen_width: f32,
-    pub(crate) start_position: Vec2,
-    pub(crate) end_position: Vec2,
-    pub(crate) start_heading: f32,
-    pub(crate) contours: Option<Vec<Vec<crate::general::Coordinate>>>,
-}
-
+/// Drawable elements in the world.
+/// All drawing is done via Lyon-tessellated meshes for consistency and quality.
 #[derive(Clone, Debug)]
 pub(crate) enum DrawCommand {
-    /// Pre-tessellated mesh data (lines, arcs, circles, polygons - all use this)
-    Mesh {
-        data: MeshData,
-        source: TurtleSource,
-    },
-    /// Text rendering command
+    /// Pre-tessellated mesh data (lines, arcs, circles, polygons — all use this).
+    Mesh { data: MeshData },
+    /// Text rendering command.
     Text {
         text: String,
         position: Vec2,
         heading: f32,
         font_size: crate::general::FontSize,
         color: Color,
-        source: TurtleSource,
     },
 }
 

@@ -33,7 +33,7 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     for turtle in &world.turtles {
         for cmd in &turtle.commands {
             match cmd {
-                DrawCommand::Mesh { data, source: _ } => {
+                DrawCommand::Mesh { data } => {
                     draw_mesh(&data.to_mesh());
                 }
                 DrawCommand::Text {
@@ -42,7 +42,6 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                     heading,
                     font_size,
                     color,
-                    source: _,
                 } => {
                     draw_text_command(text, *position, *heading, *font_size, *color);
                 }

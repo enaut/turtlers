@@ -2,12 +2,11 @@
 
 #[cfg(feature = "svg")]
 pub mod svg_export {
-    use crate::commands::TurtleCommand;
     use crate::export::{DrawingExporter, ExportError};
-    use crate::state::{DrawCommand, TurtleWorld};
+    use crate::state::{SvgRecord, TurtleWorld};
     use std::fs::File;
     use svg::{
-        node::element::{Circle, Line, Polygon, Text as SvgText},
+        node::element::{Circle, Line, Text as SvgText},
         Document,
     };
 
@@ -37,207 +36,145 @@ pub mod svg_export {
             }
 
             for turtle in &world.turtles {
-                for cmd in &turtle.commands {
-                    match cmd {
-                        DrawCommand::Mesh { source, .. } => {
-                            match &source.command {
-                                TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-                                    // Straight line — emit as SVG <line>
-                                    let start = source.start_position;
-                                    let end = source.end_position;
-                                    update_bounds(
-                                        &mut min_x, &mut max_x, &mut min_y, &mut max_y, start.x,
-                                        start.y,
-                                    );
-                                    update_bounds(
-                                        &mut min_x, &mut max_x, &mut min_y, &mut max_y, end.x,
-                                        end.y,
-                                    );
-                                    let line = Line::new()
-                                        .set("x1", start.x)
-                                        .set("y1", start.y)
-                                        .set("x2", end.x)
-                                        .set("y2", end.y)
-                                        .set("stroke", color_to_svg(source.color))
-                                        .set("stroke-width", source.pen_width);
-                                    doc = doc.add(line);
-                                }
-                                TurtleCommand::Circle {
+                for record in &turtle.svg_log.records {
+                    match record {
+                        SvgRecord::Line {
+                            start,
+                            end,
+                            color,
+                            pen_width,
+                        } => {
+                            update_bounds(
+                                &mut min_x, &mut max_x, &mut min_y, &mut max_y, start.x, start.y,
+                            );
+                            update_bounds(
+                                &mut min_x, &mut max_x, &mut min_y, &mut max_y, end.x, end.y,
+                            );
+                            let line = Line::new()
+                                .set("x1", start.x)
+                                .set("y1", start.y)
+                                .set("x2", end.x)
+                                .set("y2", end.y)
+                                .set("stroke", color_to_svg(*color))
+                                .set("stroke-width", *pen_width);
+                            doc = doc.add(line);
+                        }
+
+                        SvgRecord::Arc {
+                            start_position,
+                            start_heading,
+                            radius,
+                            angle,
+                            direction,
+                            color,
+                            pen_width,
+                        } => {
+                            use crate::circle_geometry::CircleGeometry;
+                            use crate::general::Radians;
+                            let geom = CircleGeometry::new(
+                                *start_position,
+                                Radians::new(*start_heading),
+                                *radius,
+                                *direction,
+                            );
+                            let center = geom.center;
+                            // Include the bounding box of the full circle so partial arcs
+                            // are never clipped.
+                            update_bounds(
+                                &mut min_x,
+                                &mut max_x,
+                                &mut min_y,
+                                &mut max_y,
+                                center.x - radius,
+                                center.y - radius,
+                            );
+                            update_bounds(
+                                &mut min_x,
+                                &mut max_x,
+                                &mut min_y,
+                                &mut max_y,
+                                center.x + radius,
+                                center.y + radius,
+                            );
+
+                            if (angle.value() - 360.0).abs() < 1e-3 {
+                                // Full circle — emit as <circle>
+                                let circle = Circle::new()
+                                    .set("cx", center.x)
+                                    .set("cy", center.y)
+                                    .set("r", *radius)
+                                    .set("stroke", color_to_svg(*color))
+                                    .set("stroke-width", *pen_width)
+                                    .set("fill", "none");
+                                doc = doc.add(circle);
+                            } else {
+                                // Partial arc — emit as <path A …>
+                                let end = geom.position_at_angle(angle.as_radians().value());
+                                let large_arc = if angle.value() > 180.0 { 1 } else { 0 };
+                                let sweep = match direction {
+                                    crate::circle_geometry::CircleDirection::Left => 0,
+                                    crate::circle_geometry::CircleDirection::Right => 1,
+                                };
+                                let d = format!(
+                                    "M {} {} A {} {} 0 {} {} {} {}",
+                                    start_position.x,
+                                    start_position.y,
                                     radius,
-                                    angle,
-                                    direction,
-                                    ..
-                                } => {
-                                    use crate::circle_geometry::CircleGeometry;
-                                    use crate::general::Radians;
-                                    let geom = CircleGeometry::new(
-                                        source.start_position,
-                                        Radians::new(source.start_heading),
-                                        *radius,
-                                        *direction,
-                                    );
-                                    let center = geom.center;
-                                    if (angle.value() - 360.0).abs() < 1e-3 {
-                                        // Full circle — emit as SVG <circle>
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            center.x - radius,
-                                            center.y - radius,
-                                        );
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            center.x + radius,
-                                            center.y + radius,
-                                        );
-                                        let circle = Circle::new()
-                                            .set("cx", center.x)
-                                            .set("cy", center.y)
-                                            .set("r", *radius)
-                                            .set("stroke", color_to_svg(source.color))
-                                            .set("stroke-width", source.pen_width)
-                                            .set("fill", "none");
-                                        doc = doc.add(circle);
-                                    } else {
-                                        // Partial arc — emit as SVG <path> with A command
-                                        let start = source.start_position;
-                                        let end = source.end_position;
-                                        // For arcs, include the full circle bounds to ensure complete visibility
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            center.x - radius,
-                                            center.y - radius,
-                                        );
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            center.x + radius,
-                                            center.y + radius,
-                                        );
-                                        let large_arc = if angle.value() > 180.0 { 1 } else { 0 };
-                                        let sweep = match direction {
-                                            crate::circle_geometry::CircleDirection::Left => 0,
-                                            crate::circle_geometry::CircleDirection::Right => 1,
-                                        };
-                                        let d = format!(
-                                            "M {} {} A {} {} 0 {} {} {} {}",
-                                            start.x,
-                                            start.y,
-                                            radius,
-                                            radius,
-                                            large_arc,
-                                            sweep,
-                                            end.x,
-                                            end.y
-                                        );
-                                        let path = svg::node::element::Path::new()
-                                            .set("d", d)
-                                            .set("stroke", color_to_svg(source.color))
-                                            .set("stroke-width", source.pen_width)
-                                            .set("fill", "none");
-                                        doc = doc.add(path);
-                                    }
-                                }
-                                TurtleCommand::EndFill => {
-                                    // Fill contours — emit as SVG <path> with evenodd fill rule
-                                    if let Some(contours) = &source.contours {
-                                        for contour in contours {
-                                            for point in contour {
-                                                update_bounds(
-                                                    &mut min_x, &mut max_x, &mut min_y, &mut max_y,
-                                                    point.x, point.y,
-                                                );
-                                            }
-                                        }
-                                        let mut d = String::new();
-                                        for (i, contour) in contours.iter().enumerate() {
-                                            if !contour.is_empty() {
-                                                if i > 0 {
-                                                    d.push(' ');
-                                                }
-                                                d.push_str(&format!(
-                                                    "M {} {}",
-                                                    contour[0].x, contour[0].y
-                                                ));
-                                                for point in contour.iter().skip(1) {
-                                                    d.push_str(&format!(
-                                                        " L {} {}",
-                                                        point.x, point.y
-                                                    ));
-                                                }
-                                                d.push_str(" Z");
-                                            }
-                                        }
-                                        if !d.is_empty() {
-                                            let path = svg::node::element::Path::new()
-                                                .set("d", d)
-                                                .set("fill", color_to_svg(source.fill_color))
-                                                .set("fill-rule", "evenodd")
-                                                .set("stroke", color_to_svg(source.color));
-                                            doc = doc.add(path);
-                                        }
-                                    } else {
-                                        // Fallback: no contour data — emit a dummy polygon
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            source.start_position.x,
-                                            source.start_position.y,
-                                        );
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            source.start_position.x + 10.0,
-                                            source.start_position.y + 10.0,
-                                        );
-                                        update_bounds(
-                                            &mut min_x,
-                                            &mut max_x,
-                                            &mut min_y,
-                                            &mut max_y,
-                                            source.start_position.x + 5.0,
-                                            source.start_position.y + 15.0,
-                                        );
-                                        let poly = Polygon::new()
-                                            .set(
-                                                "points",
-                                                format!(
-                                                    "{},{} {},{} {},{}",
-                                                    source.start_position.x,
-                                                    source.start_position.y,
-                                                    source.start_position.x + 10.0,
-                                                    source.start_position.y + 10.0,
-                                                    source.start_position.x + 5.0,
-                                                    source.start_position.y + 15.0
-                                                ),
-                                            )
-                                            .set("fill", color_to_svg(source.fill_color))
-                                            .set("stroke", color_to_svg(source.color));
-                                        doc = doc.add(poly);
-                                    }
-                                }
-                                _ => {}
+                                    radius,
+                                    large_arc,
+                                    sweep,
+                                    end.x,
+                                    end.y,
+                                );
+                                let path = svg::node::element::Path::new()
+                                    .set("d", d)
+                                    .set("stroke", color_to_svg(*color))
+                                    .set("stroke-width", *pen_width)
+                                    .set("fill", "none");
+                                doc = doc.add(path);
                             }
                         }
-                        DrawCommand::Text {
+
+                        SvgRecord::Fill {
+                            contours,
+                            fill_color,
+                            stroke_color,
+                        } => {
+                            for contour in contours {
+                                for point in contour {
+                                    update_bounds(
+                                        &mut min_x, &mut max_x, &mut min_y, &mut max_y, point.x,
+                                        point.y,
+                                    );
+                                }
+                            }
+                            let mut d = String::new();
+                            for (i, contour) in contours.iter().enumerate() {
+                                if !contour.is_empty() {
+                                    if i > 0 {
+                                        d.push(' ');
+                                    }
+                                    d.push_str(&format!("M {} {}", contour[0].x, contour[0].y));
+                                    for point in contour.iter().skip(1) {
+                                        d.push_str(&format!(" L {} {}", point.x, point.y));
+                                    }
+                                    d.push_str(" Z");
+                                }
+                            }
+                            if !d.is_empty() {
+                                let path = svg::node::element::Path::new()
+                                    .set("d", d)
+                                    .set("fill", color_to_svg(*fill_color))
+                                    .set("fill-rule", "evenodd")
+                                    .set("stroke", color_to_svg(*stroke_color));
+                                doc = doc.add(path);
+                            }
+                        }
+
+                        SvgRecord::Text {
                             text,
                             position,
-                            source,
-                            ..
+                            color,
                         } => {
                             update_bounds(
                                 &mut min_x, &mut max_x, &mut min_y, &mut max_y, position.x,
@@ -246,7 +183,7 @@ pub mod svg_export {
                             let txt = SvgText::new()
                                 .set("x", position.x)
                                 .set("y", position.y)
-                                .set("fill", color_to_svg(source.color))
+                                .set("fill", color_to_svg(*color))
                                 .add(svg::node::Text::new(text.clone()));
                             doc = doc.add(txt);
                         }
@@ -261,7 +198,6 @@ pub mod svg_export {
                 let view_box = format!("{} {} {} {}", min_x - 20.0, min_y - 20.0, width, height);
                 doc = doc.set("viewBox", view_box);
             } else {
-                // Default viewBox if no elements
                 doc = doc.set("viewBox", "0 0 400 400");
             }
 

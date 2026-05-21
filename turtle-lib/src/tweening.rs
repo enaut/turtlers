@@ -109,6 +109,7 @@ impl TweenController {
         params: &mut TurtleParams,
         filling: &mut Option<FillState>,
         commands: &mut Vec<DrawCommand>,
+        svg_log: &mut crate::state::SvgLog,
     ) -> Vec<(TurtleCommand, TurtleParams, TurtleParams)> {
         // In instant mode, execute commands up to the draw calls per frame limit
         if let AnimationSpeed::Instant(max_draw_calls) = self.speed {
@@ -131,7 +132,7 @@ impl TweenController {
 
                 // Execute side-effect-only commands using centralized helper
                 if crate::execution::execute_command_side_effects(
-                    &command, turtle_id, params, filling, commands,
+                    &command, turtle_id, params, filling, commands, svg_log,
                 ) {
                     continue; // Command fully handled
                 }
@@ -255,9 +256,9 @@ impl TweenController {
 
                 // Execute side-effect-only commands using centralized helper
                 if crate::execution::execute_command_side_effects(
-                    &command, turtle_id, params, filling, commands,
+                    &command, turtle_id, params, filling, commands, svg_log,
                 ) {
-                    return self.update(turtle_id, params, filling, commands);
+                    return self.update(turtle_id, params, filling, commands, svg_log);
                 }
 
                 // Return drawable commands using the original start and target params
@@ -265,7 +266,7 @@ impl TweenController {
                     return vec![(command, start_params.clone(), target_params.clone())];
                 }
 
-                return self.update(turtle_id, params, filling, commands);
+                return self.update(turtle_id, params, filling, commands, svg_log);
             }
 
             return Vec::new();
@@ -281,16 +282,16 @@ impl TweenController {
                     params.speed = *new_speed;
                     self.speed = *new_speed;
                     if matches!(self.speed, AnimationSpeed::Instant(_)) {
-                        return self.update(turtle_id, params, filling, commands);
+                        return self.update(turtle_id, params, filling, commands, svg_log);
                     }
-                    return self.update(turtle_id, params, filling, commands);
+                    return self.update(turtle_id, params, filling, commands, svg_log);
                 }
                 _ => {
                     // Use centralized helper for side effects
                     if crate::execution::execute_command_side_effects(
-                        &command, turtle_id, params, filling, commands,
+                        &command, turtle_id, params, filling, commands, svg_log,
                     ) {
-                        return self.update(turtle_id, params, filling, commands);
+                        return self.update(turtle_id, params, filling, commands, svg_log);
                     }
                 }
             }
