@@ -349,6 +349,10 @@ impl TurtlePlan {
     /// - `180°` points left (west)
     /// - `270°` points down (south)
     ///
+    /// Internally, turtle heading is stored in radians in a Y-down render space.
+    /// This method converts from user-facing degrees (Y-up mental model) to that
+    /// internal representation.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -366,6 +370,8 @@ impl TurtlePlan {
     /// }
     /// ```
     pub fn set_heading<T: Into<Degrees>>(&mut self, heading: T) -> &mut Self {
+        // Convert user-facing turtle heading (degrees, Y-up mental model)
+        // to internal radians used by the render-space pipeline.
         self.queue
             .push(TurtleCommand::SetHeading(-heading.into().as_radians()));
         self
@@ -610,10 +616,13 @@ impl TurtlePlan {
     /// The turtle moves in a straight line to the specified coordinates.
     /// If the pen is down, a line is drawn. The turtle's heading is not changed.
     ///
-    /// Coordinates are in screen space:
+    /// Coordinates use turtle-style Cartesian space:
     /// - `(0, 0)` is at the center
     /// - Positive x goes right
     /// - Positive y goes up
+    ///
+    /// Internally, Macroquad uses Y-down screen coordinates; this command
+    /// performs the Y-axis conversion when executed.
     ///
     /// # Examples
     ///
@@ -677,7 +686,7 @@ impl TurtlePlan {
 
     /// Resets the turtle to its default state.
     ///
-    /// This clears all drawings, clears the animation queue, and resets all turtle parameters:
+    /// This clears all drawings, clears active fill state, and resets turtle parameters:
     /// - Position: (0, 0)
     /// - Heading: 0° (facing right)
     /// - Pen: down
@@ -687,6 +696,8 @@ impl TurtlePlan {
     /// - Visibility: visible
     /// - Shape: arrow
     /// - Speed: default
+    ///
+    /// Note: queued commands are not removed; `reset()` itself is a command in the queue.
     ///
     /// # Examples
     ///

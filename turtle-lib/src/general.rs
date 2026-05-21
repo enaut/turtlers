@@ -13,7 +13,11 @@ pub use length::Length;
 /// Precision type for calculations
 pub type Precision = f32;
 
-/// 2D coordinate in screen space
+/// 2D coordinate value (`Vec2`) used by turtle commands and state.
+///
+/// Coordinate orientation depends on API context:
+/// - `go_to()` input uses turtle-style coordinates (Y+ is up)
+/// - internal render-space state uses Macroquad-style Y-down coordinates
 pub type Coordinate = Vec2;
 
 /// Visibility flag for turtle

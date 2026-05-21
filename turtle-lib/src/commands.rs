@@ -34,7 +34,9 @@ pub enum TurtleCommand {
 
     // Position
     Goto(Coordinate),
-    /// Heading stored as radians — already converted by the builder.
+    /// Heading stored as internal radians (Y-down render-space convention).
+    /// Values passed via `TurtlePlan::set_heading` are converted from
+    /// user-facing degrees before this command is enqueued.
     SetHeading(Radians),
 
     // Visibility
