@@ -177,9 +177,10 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                     {
                         // Calculate partial arc vertices based on current progress
                         use crate::circle_geometry::CircleGeometry;
+                        use crate::general::Radians;
                         let geom = CircleGeometry::new(
                             tween.start_params.position,
-                            tween.start_params.heading,
+                            Radians::new(tween.start_params.heading),
                             *radius,
                             *direction,
                         ); // Calculate progress
@@ -197,11 +198,11 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                             let current_angle = match direction {
                                 crate::circle_geometry::CircleDirection::Left => {
                                     geom.start_angle_from_center
-                                        - angle.to_radians() * sample_progress
+                                        - angle.as_radians().value() * sample_progress
                                 }
                                 crate::circle_geometry::CircleDirection::Right => {
                                     geom.start_angle_from_center
-                                        + angle.to_radians() * sample_progress
+                                        + angle.as_radians().value() * sample_progress
                                 }
                             };
 
@@ -347,13 +348,14 @@ fn draw_text_command(
 fn draw_tween_arc(
     tween: &crate::tweening::CommandTween,
     radius: f32,
-    total_angle: f32,
+    total_angle: crate::general::Degrees,
     steps: usize,
     direction: CircleDirection,
 ) {
+    use crate::general::Radians;
     let geom = CircleGeometry::new(
         tween.start_params.position,
-        tween.start_params.heading,
+        Radians::new(tween.start_params.heading),
         radius,
         direction,
     );
@@ -375,7 +377,7 @@ fn draw_tween_arc(
         geom.center,
         radius,
         geom.start_angle_from_center.to_degrees(),
-        total_angle * progress,
+        total_angle.value() * progress,
         tween.start_params.color,
         tween.start_params.pen_width,
         ((steps as f32 * progress).ceil() as usize).max(1),

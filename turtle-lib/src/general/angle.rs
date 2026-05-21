@@ -1,205 +1,162 @@
-//! Angle type with degrees and radians support
+//! Angle unit newtypes: `Degrees` and `Radians`.
+//!
+//! ## Design
+//!
+//! Two separate types instead of a single enum so that function signatures are
+//! self-documenting and the compiler rejects wrong-unit arguments.
+//!
+//! - **`Degrees`** — public API boundary. Builder methods and `TurtleCommand`
+//!   fields that originate from user input store this type. Convert with
+//!   `as_radians()` before entering the rendering pipeline.
+//!
+//! - **`Radians`** — internal pipeline. All geometry functions and
+//!   `TurtleParams` arithmetic work in radians. Extract the raw `f32` with
+//!   `value()` only where stdlib trig functions (`sin`, `cos`, …) require it.
+//!
+//! There is intentionally **no** conversion from `Radians` back to `f32` that
+//! strips the unit tag silently — use `.value()` explicitly and at the last
+//! possible moment.
 
 use super::Precision;
-use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use std::ops::Neg;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum AngleUnit {
-    Degrees(Precision),
-    Radians(Precision),
-}
+/// An angle measured in degrees.
+///
+/// Used at the public API boundary. Convert to [`Radians`] with `as_radians()`
+/// before passing into internal rendering functions.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
+pub struct Degrees(pub Precision);
 
-impl Default for AngleUnit {
-    fn default() -> Self {
-        Self::Degrees(0.0)
+impl Degrees {
+    /// Construct from a raw degrees value.
+    #[must_use]
+    pub fn new(v: Precision) -> Self {
+        Self(v)
+    }
+
+    /// Convert to [`Radians`] for use in the rendering pipeline.
+    ///
+    /// This is the **only** correct way to enter the internal math layer.
+    #[must_use]
+    pub fn as_radians(self) -> Radians {
+        Radians(self.0.to_radians())
+    }
+
+    /// The raw degrees value.
+    ///
+    /// Use only for degree-to-degree arithmetic (e.g. negating a turn angle
+    /// before storing it as a command). Do not pass this to trig functions.
+    #[must_use]
+    pub fn value(self) -> Precision {
+        self.0
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Angle {
-    value: AngleUnit,
-}
-
-impl Default for Angle {
-    fn default() -> Self {
-        Self {
-            value: AngleUnit::Degrees(0.0),
-        }
-    }
-}
-
-impl From<i16> for Angle {
-    fn from(i: i16) -> Self {
-        Self {
-            value: AngleUnit::Degrees(Precision::from(i)),
-        }
-    }
-}
-
-impl From<f32> for Angle {
-    fn from(f: f32) -> Self {
-        Self {
-            value: AngleUnit::Degrees(f),
-        }
-    }
-}
-
-impl Rem<Precision> for Angle {
+impl Neg for Degrees {
     type Output = Self;
-
-    fn rem(self, rhs: Precision) -> Self::Output {
-        match self.value {
-            AngleUnit::Degrees(v) => Self::degrees(v % rhs),
-            AngleUnit::Radians(v) => Self::radians(v % rhs),
-        }
+    fn neg(self) -> Self {
+        Self(-self.0)
     }
 }
 
-impl Mul<Precision> for Angle {
+impl From<f32> for Degrees {
+    fn from(v: f32) -> Self {
+        Self(v)
+    }
+}
+
+impl From<i32> for Degrees {
+    fn from(v: i32) -> Self {
+        Self(v as Precision)
+    }
+}
+
+impl From<i16> for Degrees {
+    fn from(v: i16) -> Self {
+        Self(Precision::from(v))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An angle measured in radians.
+///
+/// Used in all internal function signatures and geometry math.  Extract the
+/// raw `f32` with [`value()`](Radians::value) only when calling stdlib trig
+/// functions (`sin`, `cos`, etc.).
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
+pub struct Radians(pub Precision);
+
+impl Radians {
+    /// Construct from a raw radians value.
+    #[must_use]
+    pub fn new(v: Precision) -> Self {
+        Self(v)
+    }
+
+    /// Convert to [`Degrees`] for display or user-facing output.
+    #[must_use]
+    pub fn as_degrees(self) -> Degrees {
+        Degrees(self.0.to_degrees())
+    }
+
+    /// The raw radians value.
+    ///
+    /// Use only when calling stdlib trig functions or other `f32`-based
+    /// math APIs. Keep `Radians` as the type at all internal function
+    /// boundaries.
+    #[must_use]
+    pub fn value(self) -> Precision {
+        self.0
+    }
+}
+
+impl Neg for Radians {
     type Output = Self;
-
-    fn mul(self, rhs: Precision) -> Self::Output {
-        match self.value {
-            AngleUnit::Degrees(v) => Self::degrees(v * rhs),
-            AngleUnit::Radians(v) => Self::radians(v * rhs),
-        }
+    fn neg(self) -> Self {
+        Self(-self.0)
     }
 }
 
-impl Div<Precision> for Angle {
-    type Output = Self;
-
-    fn div(self, rhs: Precision) -> Self::Output {
-        match self.value {
-            AngleUnit::Degrees(v) => Self::degrees(v / rhs),
-            AngleUnit::Radians(v) => Self::radians(v / rhs),
-        }
-    }
-}
-
-impl Neg for Angle {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        match self.value {
-            AngleUnit::Degrees(v) => Self::degrees(-v),
-            AngleUnit::Radians(v) => Self::radians(-v),
-        }
-    }
-}
-
-impl Neg for &Angle {
-    type Output = Angle;
-
-    fn neg(self) -> Self::Output {
-        match self.value {
-            AngleUnit::Degrees(v) => Angle::degrees(-v),
-            AngleUnit::Radians(v) => Angle::radians(-v),
-        }
-    }
-}
-
-impl Add for Angle {
-    type Output = Angle;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        match (self.value, rhs.value) {
-            (AngleUnit::Degrees(v), AngleUnit::Degrees(o)) => Self::degrees(v + o),
-            (AngleUnit::Degrees(v), AngleUnit::Radians(o)) => Self::radians(v.to_radians() + o),
-            (AngleUnit::Radians(v), AngleUnit::Degrees(o)) => Self::radians(v + o.to_radians()),
-            (AngleUnit::Radians(v), AngleUnit::Radians(o)) => Self::radians(v + o),
-        }
-    }
-}
-
-impl Sub for Angle {
-    type Output = Angle;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match (self.value, rhs.value) {
-            (AngleUnit::Degrees(v), AngleUnit::Degrees(o)) => Self::degrees(v - o),
-            (AngleUnit::Degrees(v), AngleUnit::Radians(o)) => Self::radians(v.to_radians() - o),
-            (AngleUnit::Radians(v), AngleUnit::Degrees(o)) => Self::radians(v - o.to_radians()),
-            (AngleUnit::Radians(v), AngleUnit::Radians(o)) => Self::radians(v - o),
-        }
-    }
-}
-
-impl Angle {
-    #[must_use]
-    pub fn degrees(value: Precision) -> Self {
-        Self {
-            value: AngleUnit::Degrees(value),
-        }
-    }
-
-    #[must_use]
-    pub fn radians(value: Precision) -> Self {
-        Self {
-            value: AngleUnit::Radians(value),
-        }
-    }
-
-    #[must_use]
-    pub fn value(&self) -> Precision {
-        match self.value {
-            AngleUnit::Degrees(v) | AngleUnit::Radians(v) => v,
-        }
-    }
-
-    #[must_use]
-    pub fn to_radians(self) -> Self {
-        match self.value {
-            AngleUnit::Degrees(v) => Self::radians(v.to_radians()),
-            AngleUnit::Radians(_) => self,
-        }
-    }
-
-    #[must_use]
-    pub fn to_degrees(self) -> Self {
-        match self.value {
-            AngleUnit::Degrees(_) => self,
-            AngleUnit::Radians(v) => Self::degrees(v.to_degrees()),
-        }
-    }
-
-    #[must_use]
-    pub fn limit_smaller_than_full_circle(self) -> Self {
-        use std::f32::consts::PI;
-        match self.value {
-            AngleUnit::Degrees(v) => Self::degrees(v % 360.0),
-            AngleUnit::Radians(v) => Self::radians(v % (2.0 * PI)),
-        }
+impl From<f32> for Radians {
+    fn from(v: f32) -> Self {
+        Self(v)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f32::consts::PI;
 
     #[test]
-    fn convert_to_radians() {
-        let radi = Angle::radians(30f32.to_radians());
-        let degr = Angle::degrees(30f32);
-        let converted = degr.to_radians();
-        assert!((radi.value() - converted.value()).abs() < 0.0001);
+    fn degrees_to_radians_roundtrip() {
+        let deg = Degrees::new(180.0);
+        let rad = deg.as_radians();
+        assert!(
+            (rad.value() - PI).abs() < 1e-6,
+            "expected π, got {}",
+            rad.value()
+        );
+        let back = rad.as_degrees();
+        assert!(
+            (back.value() - 180.0).abs() < 1e-4,
+            "expected 180°, got {}",
+            back.value()
+        );
     }
 
     #[test]
-    fn sum_degrees() {
-        let fst = Angle::degrees(30f32);
-        let snd = Angle::degrees(30f32);
-        let sum = fst + snd;
-        assert!((sum.value() - 60f32).abs() < 0.0001);
-        assert!((sum.to_radians().value() - 60f32.to_radians()).abs() < 0.0001);
+    fn negation() {
+        assert_eq!(-Degrees::new(90.0), Degrees::new(-90.0));
+        assert_eq!(-Radians::new(1.0), Radians::new(-1.0));
     }
 
     #[test]
-    fn sum_mixed() {
-        let fst = Angle::degrees(30f32);
-        let snd = Angle::radians(30f32.to_radians());
-        let sum = fst + snd;
-        assert!((sum.to_degrees().value() - 60f32).abs() < 0.0001);
-        assert!((sum.to_radians().value() - 60f32.to_radians()).abs() < 0.0001);
+    fn from_integer() {
+        let d: Degrees = 90_i32.into();
+        assert_eq!(d, Degrees::new(90.0));
+        let d2: Degrees = 45_i16.into();
+        assert_eq!(d2, Degrees::new(45.0));
     }
 }

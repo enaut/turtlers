@@ -9,7 +9,7 @@
 
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::TurtleCommand;
-use crate::general::AnimationSpeed;
+use crate::general::{AnimationSpeed, Radians};
 use crate::state::TurtleParams;
 use crate::tweening::normalize_angle;
 use macroquad::prelude::vec2;
@@ -36,7 +36,7 @@ impl TurtleCommand {
                 params.position = vec2(params.position.x + dx, params.position.y + dy);
             }
             TurtleCommand::Turn(angle) => {
-                params.heading = normalize_angle(params.heading + angle.to_radians());
+                params.heading = normalize_angle(params.heading + angle.as_radians().value());
             }
             TurtleCommand::Circle {
                 radius,
@@ -44,12 +44,17 @@ impl TurtleCommand {
                 direction,
                 ..
             } => {
-                let geom =
-                    CircleGeometry::new(params.position, params.heading, *radius, *direction);
-                params.position = geom.position_at_angle(angle.to_radians());
+                let geom = CircleGeometry::new(
+                    params.position,
+                    Radians::new(params.heading),
+                    *radius,
+                    *direction,
+                );
+                let angle_rad = angle.as_radians().value();
+                params.position = geom.position_at_angle(angle_rad);
                 params.heading = normalize_angle(match direction {
-                    CircleDirection::Left => params.heading - angle.to_radians(),
-                    CircleDirection::Right => params.heading + angle.to_radians(),
+                    CircleDirection::Left => params.heading - angle_rad,
+                    CircleDirection::Right => params.heading + angle_rad,
                 });
             }
             TurtleCommand::Goto(coord) => {
@@ -57,7 +62,7 @@ impl TurtleCommand {
                 params.position = vec2(coord.x, -coord.y);
             }
             TurtleCommand::SetHeading(heading) => {
-                params.heading = normalize_angle(*heading);
+                params.heading = normalize_angle(heading.value());
             }
             TurtleCommand::SetColor(color) => {
                 params.color = *color;
@@ -115,9 +120,9 @@ impl TurtleCommand {
 
         let base: f32 = match self {
             TurtleCommand::Move(dist) => dist.abs() / spd,
-            TurtleCommand::Turn(angle) => angle.abs() / (spd * 1.8),
+            TurtleCommand::Turn(angle) => angle.value().abs() / (spd * 1.8),
             TurtleCommand::Circle { radius, angle, .. } => {
-                let arc_length = radius * angle.to_radians().abs();
+                let arc_length = radius * angle.as_radians().value().abs();
                 arc_length / spd
             }
             TurtleCommand::Goto(target) => {

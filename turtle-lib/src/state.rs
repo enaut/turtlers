@@ -1,7 +1,7 @@
 //! Turtle state and world state management
 
 use crate::commands::CommandQueue;
-use crate::general::{Angle, AnimationSpeed, Color, Coordinate};
+use crate::general::{AnimationSpeed, Color, Coordinate};
 use crate::shapes::TurtleShape;
 use crate::tweening::TweenController;
 use macroquad::prelude::*;
@@ -88,8 +88,8 @@ impl Turtle {
     }
 
     #[must_use]
-    pub fn heading_angle(&self) -> Angle {
-        Angle::radians(self.params.heading)
+    pub fn heading_angle(&self) -> crate::general::Radians {
+        crate::general::Radians::new(self.params.heading)
     }
 
     /// Reset turtle to default state (preserves `turtle_id` and queued commands)

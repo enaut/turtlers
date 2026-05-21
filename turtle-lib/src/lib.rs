@@ -63,7 +63,7 @@ pub(crate) mod tweening;
 pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
 pub use commands::{CommandQueue, TurtleCommand};
 pub use commands_channel::TurtleCommandSender;
-pub use general::{Angle, AnimationSpeed, Color, Coordinate, Length, Precision};
+pub use general::{Degrees, Radians, AnimationSpeed, Color, Coordinate, Length, Precision};
 pub use shapes::{ShapeType, TurtleShape};
 
 pub mod export;

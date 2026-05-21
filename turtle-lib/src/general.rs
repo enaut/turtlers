@@ -6,7 +6,7 @@ pub mod angle;
 pub mod fontsize;
 pub mod length;
 
-pub use angle::Angle;
+pub use angle::{Degrees, Radians};
 pub use fontsize::FontSize;
 pub use length::Length;
 

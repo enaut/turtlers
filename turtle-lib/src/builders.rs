@@ -1,7 +1,7 @@
 //! Builder pattern traits for creating turtle command sequences
 
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::{AnimationSpeed, Color, Coordinate, FontSize, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, Degrees, FontSize, Precision};
 use crate::shapes::{ShapeType, TurtleShape};
 
 /// Trait for adding commands to a queue
@@ -91,10 +91,10 @@ pub trait Turnable: WithCommands {
     /// ```
     fn left<T>(&mut self, angle: T) -> &mut Self
     where
-        T: Into<Precision>,
+        T: Into<Degrees>,
     {
-        let degrees: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::Turn(-degrees));
+        self.get_commands_mut()
+            .push(TurtleCommand::Turn(-angle.into()));
         self
     }
 
@@ -118,10 +118,10 @@ pub trait Turnable: WithCommands {
     /// ```
     fn right<T>(&mut self, angle: T) -> &mut Self
     where
-        T: Into<Precision>,
+        T: Into<Degrees>,
     {
-        let degrees: Precision = angle.into();
-        self.get_commands_mut().push(TurtleCommand::Turn(degrees));
+        self.get_commands_mut()
+            .push(TurtleCommand::Turn(angle.into()));
         self
     }
 }
@@ -160,13 +160,12 @@ pub trait CurvedMovement: WithCommands {
     fn circle_left<R, A>(&mut self, radius: R, angle: A, steps: usize) -> &mut Self
     where
         R: Into<Precision>,
-        A: Into<Precision>,
+        A: Into<Degrees>,
     {
         let r: Precision = radius.into();
-        let a: Precision = angle.into();
         self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
-            angle: a,
+            angle: angle.into(),
             steps,
             direction: crate::circle_geometry::CircleDirection::Left,
         });
@@ -207,13 +206,12 @@ pub trait CurvedMovement: WithCommands {
     fn circle_right<R, A>(&mut self, radius: R, angle: A, steps: usize) -> &mut Self
     where
         R: Into<Precision>,
-        A: Into<Precision>,
+        A: Into<Degrees>,
     {
         let r: Precision = radius.into();
-        let a: Precision = angle.into();
         self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
-            angle: a,
+            angle: angle.into(),
             steps,
             direction: crate::circle_geometry::CircleDirection::Right,
         });
@@ -242,14 +240,14 @@ impl TurtlePlan {
     /// async fn main() {
     ///     let mut turtle = TurtlePlan::new();
     ///     turtle.forward(100.0).right(90.0).forward(100.0);
-    ///     
+    ///
     ///     let mut app = TurtleApp::new().with_commands(turtle.build());
-    ///     
+    ///
     ///     loop {
     ///         clear_background(WHITE);
     ///         app.update();
     ///         app.render();
-    ///         
+    ///
     ///         if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Q) {
     ///             break;
     ///         }
@@ -367,9 +365,9 @@ impl TurtlePlan {
     ///           .forward(100.0);
     /// }
     /// ```
-    pub fn set_heading(&mut self, heading: Precision) -> &mut Self {
+    pub fn set_heading<T: Into<Degrees>>(&mut self, heading: T) -> &mut Self {
         self.queue
-            .push(TurtleCommand::SetHeading(-heading.to_radians()));
+            .push(TurtleCommand::SetHeading(-heading.into().as_radians()));
         self
     }
 
@@ -699,10 +697,10 @@ impl TurtlePlan {
     /// fn draw(turtle: &mut TurtlePlan) {
     ///     // Draw something
     ///     turtle.forward(100.0);
-    ///     
+    ///
     ///     // Reset everything back to default
     ///     turtle.reset();
-    ///     
+    ///
     ///     // Start fresh
     ///     turtle.forward(50.0);
     /// }

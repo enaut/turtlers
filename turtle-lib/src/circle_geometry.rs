@@ -1,5 +1,6 @@
 //! Circle geometry calculations - single source of truth for `circle_left` and `circle_right`
 
+use crate::general::Radians;
 use macroquad::prelude::*;
 
 /// Direction of circular motion (in screen coordinates with Y-down)
@@ -22,11 +23,14 @@ impl CircleGeometry {
     #[must_use]
     pub fn new(
         turtle_pos: Vec2,
-        turtle_heading: f32,
+        turtle_heading: Radians,
         radius: f32,
         direction: CircleDirection,
     ) -> Self {
         use std::f32::consts::FRAC_PI_2;
+
+        // Extract raw f32 once — all arithmetic below is in radians
+        let heading = turtle_heading.value();
 
         // Calculate center based on direction
         // In screen coordinates (Y-down):
@@ -35,8 +39,8 @@ impl CircleGeometry {
         // - Right turn (clockwise visually): center is perpendicular-right from turtle's perspective
         //   which is heading + π/2 (rotated counter-clockwise from heading vector)
         let center_offset_angle = match direction {
-            CircleDirection::Left => turtle_heading - FRAC_PI_2,
-            CircleDirection::Right => turtle_heading + FRAC_PI_2,
+            CircleDirection::Left => heading - FRAC_PI_2,
+            CircleDirection::Right => heading + FRAC_PI_2,
         };
 
         let center = vec2(
@@ -46,8 +50,8 @@ impl CircleGeometry {
 
         // Angle from center back to turtle position
         let start_angle_from_center = match direction {
-            CircleDirection::Left => turtle_heading + FRAC_PI_2,
-            CircleDirection::Right => turtle_heading - FRAC_PI_2,
+            CircleDirection::Left => heading + FRAC_PI_2,
+            CircleDirection::Right => heading - FRAC_PI_2,
         };
 
         Self {
@@ -151,7 +155,7 @@ mod tests {
     fn test_circle_left_geometry() {
         let geom = CircleGeometry::new(
             vec2(0.0, 0.0),
-            0.0, // heading east (0 radians)
+            Radians::new(0.0), // heading east (0 radians)
             100.0,
             CircleDirection::Left,
         );
@@ -183,7 +187,7 @@ mod tests {
     fn test_circle_right_geometry() {
         let geom = CircleGeometry::new(
             vec2(0.0, 0.0),
-            0.0, // heading east
+            Radians::new(0.0), // heading east
             100.0,
             CircleDirection::Right,
         );

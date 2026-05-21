@@ -2,7 +2,7 @@
 
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::TurtleCommand;
-use crate::general::Coordinate;
+use crate::general::{Coordinate, Radians};
 use crate::state::{DrawCommand, FillState, Turtle, TurtleParams, TurtleWorld};
 use crate::tessellation;
 use macroquad::prelude::*;
@@ -247,7 +247,7 @@ pub(crate) fn record_fill_vertices_after_movement(
         } => {
             let geom = CircleGeometry::new(
                 start_state.position,
-                start_state.heading,
+                Radians::new(start_state.heading),
                 *radius,
                 *direction,
             );
@@ -267,10 +267,10 @@ pub(crate) fn record_fill_vertices_after_movement(
                         let progress = i as f32 / num_samples as f32;
                         let current_angle = match direction {
                             CircleDirection::Left => {
-                                geom.start_angle_from_center - angle.to_radians() * progress
+                                geom.start_angle_from_center - angle.as_radians().value() * progress
                             }
                             CircleDirection::Right => {
-                                geom.start_angle_from_center + angle.to_radians() * progress
+                                geom.start_angle_from_center + angle.as_radians().value() * progress
                             }
                         };
                         let vertex = Coordinate::new(
@@ -362,12 +362,17 @@ pub(crate) fn tessellate_command(
             direction,
         } => {
             use crate::circle_geometry::CircleGeometry;
-            let geom = CircleGeometry::new(start.position, start.heading, *radius, *direction);
+            let geom = CircleGeometry::new(
+                start.position,
+                Radians::new(start.heading),
+                *radius,
+                *direction,
+            );
             let mesh_data = tessellation::tessellate_arc(
                 geom.center,
                 *radius,
                 geom.start_angle_from_center.to_degrees(),
-                *angle,
+                angle.value(),
                 start.color,
                 start.pen_width,
                 *steps,
@@ -449,6 +454,7 @@ pub(crate) fn execute_command_with_id(
 mod tests {
     use super::*;
     use crate::commands::TurtleCommand;
+    use crate::general::Degrees;
     use crate::shapes::TurtleShape;
     use crate::tweening::TweenController;
 
@@ -512,7 +518,7 @@ mod tests {
 
         // Left 90 degrees - should face north (heading decreases by 90°)
         // In screen coords: north = -90° = -π/2
-        execute_command(&TurtleCommand::Turn(-90.0), &mut state);
+        execute_command(&TurtleCommand::Turn(Degrees::new(-90.0)), &mut state);
         assert!(
             (state.params.position.x - 100.0).abs() < 0.01,
             "After left(90): x = {}",

@@ -2,7 +2,7 @@
 
 use crate::circle_geometry::{CircleDirection, CircleGeometry};
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::AnimationSpeed;
+use crate::general::{AnimationSpeed, Radians};
 use crate::state::{DrawCommand, FillState, TurtleParams};
 use macroquad::prelude::*;
 use tween::{CubicInOut, TweenValue, Tweener};
@@ -180,10 +180,10 @@ impl TweenController {
                     direction,
                     ..
                 } => {
-                    let angle_traveled = angle.to_radians() * progress;
+                    let angle_traveled = angle.as_radians().value() * progress;
                     calculate_circle_position(
                         tween.start_params.position,
-                        tween.start_params.heading,
+                        Radians::new(tween.start_params.heading),
                         *radius,
                         angle_traveled,
                         *direction,
@@ -204,14 +204,14 @@ impl TweenController {
                     angle, direction, ..
                 } => match direction {
                     CircleDirection::Left => {
-                        tween.start_params.heading - angle.to_radians() * progress
+                        tween.start_params.heading - angle.as_radians().value() * progress
                     }
                     CircleDirection::Right => {
-                        tween.start_params.heading + angle.to_radians() * progress
+                        tween.start_params.heading + angle.as_radians().value() * progress
                     }
                 },
                 TurtleCommand::Turn(angle) => {
-                    tween.start_params.heading + angle.to_radians() * progress
+                    tween.start_params.heading + angle.as_radians().value() * progress
                 }
                 _ => {
                     // For other commands that change heading, lerp directly
@@ -368,12 +368,17 @@ impl TweenController {
     }
 }
 
-/// Calculate position on a circular arc
+/// Calculate position on a circular arc.
+///
+/// `start_heading` is in radians (typed as `Radians` to make the unit
+/// explicit at every call site). `angle_traveled` is already a raw `f32`
+/// radians value produced by multiplying `Degrees::as_radians().value()`
+/// by a tween progress scalar.
 fn calculate_circle_position(
     start_pos: Vec2,
-    start_heading: f32,
+    start_heading: Radians,
     radius: f32,
-    angle_traveled: f32, // How much of the total angle we've traveled (in radians)
+    angle_traveled: f32,
     direction: CircleDirection,
 ) -> Vec2 {
     let geom = CircleGeometry::new(start_pos, start_heading, radius, direction);
