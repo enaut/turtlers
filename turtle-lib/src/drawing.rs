@@ -360,7 +360,7 @@ fn draw_tween_arc(
         direction,
     );
 
-    // Debug: draw center using Lyon tessellation
+    // Draw center using Lyon tessellation this helps visualizing what is done.
     if let Ok(mesh_data) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0)
     {
         draw_mesh(&mesh_data.to_mesh());
