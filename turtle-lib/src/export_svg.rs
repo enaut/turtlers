@@ -180,11 +180,10 @@ pub mod svg_export {
                                 &mut min_x, &mut max_x, &mut min_y, &mut max_y, position.x,
                                 position.y,
                             );
-                            let txt = SvgText::new()
+                            let txt = SvgText::new(text.clone())
                                 .set("x", position.x)
                                 .set("y", position.y)
-                                .set("fill", color_to_svg(*color))
-                                .add(svg::node::Text::new(text.clone()));
+                                .set("fill", color_to_svg(*color));
                             doc = doc.add(txt);
                         }
                     }
