@@ -343,6 +343,8 @@ pub(crate) enum SvgRecord {
     Text {
         text: String,
         position: Vec2,
+        heading: f32,
+        font_size: crate::general::FontSize,
         color: Color,
     },
 }

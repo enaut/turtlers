@@ -174,16 +174,32 @@ pub mod svg_export {
                         SvgRecord::Text {
                             text,
                             position,
+                            heading,
+                            font_size,
                             color,
+                            ..
                         } => {
+                            // Match the offset/rotation applied by the on-screen renderer
+                            // (see draw_text_command in drawing.rs) so the SVG export lines up.
+                            let font_size_val = f32::from(font_size.value());
+                            let offset_distance = font_size_val / 3.0;
+                            let perpendicular_angle = *heading - std::f32::consts::PI / 2.0;
+                            let text_x = position.x + offset_distance * perpendicular_angle.cos();
+                            let text_y = position.y + offset_distance * perpendicular_angle.sin();
                             update_bounds(
-                                &mut min_x, &mut max_x, &mut min_y, &mut max_y, position.x,
-                                position.y,
+                                &mut min_x, &mut max_x, &mut min_y, &mut max_y, text_x, text_y,
                             );
+
+                            let rotation_deg = heading.to_degrees();
                             let txt = SvgText::new(text.clone())
-                                .set("x", position.x)
-                                .set("y", position.y)
-                                .set("fill", color_to_svg(*color));
+                                .set("x", text_x)
+                                .set("y", text_y)
+                                .set("fill", color_to_svg(*color))
+                                .set("font-size", font_size_val)
+                                .set(
+                                    "transform",
+                                    format!("rotate({rotation_deg}, {text_x}, {text_y})"),
+                                );
                             doc = doc.add(txt);
                         }
                     }

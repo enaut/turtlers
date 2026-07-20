@@ -9,6 +9,7 @@ async fn main() {
     let mut plan = create_turtle_plan();
     plan.forward(100.0)
         .right(90.0)
+        .set_speed(950.0)
         .forward(100.0)
         .set_pen_color(macroquad::color::GRAY)
         .set_pen_width(8.0)
@@ -17,9 +18,11 @@ async fn main() {
         .forward(100.0)
         .right(90.0)
         .forward(200.0)
-        .end_fill()
-        .circle_left(200., 180., 24)
-        .circle_left(90.0, 180.0, 36)
+        .end_fill();
+    for size in 0..9 {
+        plan.circle_left(200., 20., 6).write_text("a", size * 10);
+    }
+    plan.circle_left(90.0, 180.0, 36)
         .begin_fill()
         .circle_left(90.0, 180.0, 36)
         .circle_left(45.0, 180.0, 26)

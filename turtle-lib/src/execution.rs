@@ -190,6 +190,8 @@ pub(crate) fn execute_command_side_effects(
             svg_log.push(crate::state::SvgRecord::Text {
                 text: text.clone(),
                 position: params.position,
+                heading: params.heading,
+                font_size: *font_size,
                 color: params.color,
             });
             true
