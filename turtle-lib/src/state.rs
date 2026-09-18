@@ -55,7 +55,6 @@ impl Default for TurtleParams {
 }
 
 /// State of a single turtle
-#[derive(Clone, Debug)]
 pub(crate) struct Turtle {
     pub(crate) turtle_id: usize,
     pub(crate) params: TurtleParams,
@@ -349,30 +348,11 @@ pub(crate) enum SvgRecord {
     },
 }
 
-/// Cached mesh data that can be cloned and converted to Mesh when needed
-#[derive(Clone, Debug)]
-pub(crate) struct MeshData {
-    pub(crate) vertices: Vec<macroquad::prelude::Vertex>,
-    pub(crate) indices: Vec<u16>,
-}
-
-impl MeshData {
-    #[must_use]
-    pub fn to_mesh(&self) -> macroquad::prelude::Mesh {
-        macroquad::prelude::Mesh {
-            vertices: self.vertices.clone(),
-            indices: self.indices.clone(),
-            texture: None,
-        }
-    }
-}
-
 /// Drawable elements in the world.
 /// All drawing is done via Lyon-tessellated meshes for consistency and quality.
-#[derive(Clone, Debug)]
 pub(crate) enum DrawCommand {
     /// Pre-tessellated mesh data (lines, arcs, circles, polygons — all use this).
-    Mesh { data: MeshData },
+    Mesh(macroquad::prelude::Mesh),
     /// Text rendering command.
     Text {
         text: String,

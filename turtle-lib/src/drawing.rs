@@ -33,8 +33,8 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     for turtle in &world.turtles {
         for cmd in &turtle.commands {
             match cmd {
-                DrawCommand::Mesh { data } => {
-                    draw_mesh(&data.to_mesh());
+                DrawCommand::Mesh(mesh) => {
+                    draw_mesh(mesh);
                 }
                 DrawCommand::Text {
                     text,
@@ -224,8 +224,8 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                     &all_contours,
                     fill_state.fill_color,
                 ) {
-                    Ok(mesh_data) => {
-                        draw_mesh(&mesh_data.to_mesh());
+                    Ok(mesh) => {
+                        draw_mesh(&mesh);
                     }
                     Err(e) => {
                         tracing::error!("Failed to tessellate fill preview: {:?}", e);
@@ -304,9 +304,9 @@ fn draw_tween_arc(
     );
 
     // Draw center using Lyon tessellation this helps visualizing what is done.
-    if let Ok(mesh_data) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0)
+    if let Ok(mesh) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0)
     {
-        draw_mesh(&mesh_data.to_mesh());
+        draw_mesh(&mesh);
     }
 
     // Calculate how much of the arc we've traveled based on tween progress
@@ -316,7 +316,7 @@ fn draw_tween_arc(
     let progress = CubicInOut.tween(1.0, t as f32); // tween from 0 to 1
 
     // Use Lyon to tessellate and draw the partial arc
-    if let Ok(mesh_data) = crate::tessellation::tessellate_arc(
+    if let Ok(mesh) = crate::tessellation::tessellate_arc(
         geom.center,
         radius,
         geom.start_angle_from_center.to_degrees(),
@@ -326,7 +326,7 @@ fn draw_tween_arc(
         ((steps as f32 * progress).ceil() as usize).max(1),
         direction,
     ) {
-        draw_mesh(&mesh_data.to_mesh());
+        draw_mesh(&mesh);
     }
 }
 
@@ -343,10 +343,10 @@ pub(crate) fn draw_turtle(turtle_params: &TurtleParams) {
                 .collect();
 
             // Use Lyon for turtle shape too
-            if let Ok(mesh_data) =
+            if let Ok(mesh) =
                 tessellation::tessellate_polygon(&absolute_vertices, Color::new(0.0, 0.5, 1.0, 1.0))
             {
-                draw_mesh(&mesh_data.to_mesh());
+                draw_mesh(&mesh);
             } else {
                 // Fallback to simple triangle fan if Lyon fails
                 let first = absolute_vertices[0];

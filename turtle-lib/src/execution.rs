@@ -123,7 +123,7 @@ pub(crate) fn execute_command_side_effects(
                 }
 
                 if !fill_state.contours.is_empty() {
-                    if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                    if let Ok(mesh) = tessellation::tessellate_multi_contour(
                         &fill_state.contours,
                         fill_state.fill_color,
                     ) {
@@ -132,7 +132,7 @@ pub(crate) fn execute_command_side_effects(
                             contours = fill_state.contours.len(),
                             "Successfully created fill mesh - persisting to commands"
                         );
-                        commands.push(DrawCommand::Mesh { data: mesh_data });
+                        commands.push(DrawCommand::Mesh(mesh));
                         #[cfg(feature = "svg")]
                         svg_log.push(crate::state::SvgRecord::Fill {
                             contours: fill_state.contours,
@@ -326,7 +326,7 @@ pub(crate) fn tessellate_command(
 
     match command {
         TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-            let mesh_data = tessellation::tessellate_stroke(
+            let mesh = tessellation::tessellate_stroke(
                 &[start.position, end_position],
                 start.color,
                 start.pen_width,
@@ -334,7 +334,7 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh { data: mesh_data })
+            Some(DrawCommand::Mesh(mesh))
         }
 
         TurtleCommand::Circle {
@@ -350,7 +350,7 @@ pub(crate) fn tessellate_command(
                 *radius,
                 *direction,
             );
-            let mesh_data = tessellation::tessellate_arc(
+            let mesh = tessellation::tessellate_arc(
                 geom.center,
                 *radius,
                 geom.start_angle_from_center.to_degrees(),
@@ -362,7 +362,7 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh { data: mesh_data })
+            Some(DrawCommand::Mesh(mesh))
         }
 
         // `produces_drawing()` guards entry — this arm is only reachable if
@@ -484,7 +484,7 @@ mod tests {
         // the turtle ends up at (100, -50) from initial position (0, 0)
         use crate::state::TurtleParams;
 
-        let state = Turtle {
+        let mut state = Turtle {
             turtle_id: 0,
             params: TurtleParams {
                 position: vec2(0.0, 0.0),
@@ -502,21 +502,6 @@ mod tests {
             svg_log: crate::state::SvgLog::default(),
             tween_controller: TweenController::default(),
         };
-
-        // We'll use a dummy world but won't actually call drawing commands
-        let world = TurtleWorld {
-            turtles: vec![state.clone()],
-            camera: macroquad::camera::Camera2D {
-                zoom: vec2(1.0, 1.0),
-                target: vec2(0.0, 0.0),
-                offset: vec2(0.0, 0.0),
-                rotation: 0.0,
-                render_target: None,
-                viewport: None,
-            },
-            background_color: Color::new(1.0, 1.0, 1.0, 1.0),
-        };
-        let mut state = world.turtles[0].clone();
 
         // Initial state: position (0, 0), heading 0 (east)
         assert_eq!(state.params.position.x, 0.0);
