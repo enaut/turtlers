@@ -60,8 +60,8 @@ pub enum TurtleCommand {
 /// A pure-data sequence of turtle commands.
 ///
 /// `CommandQueue` is intentionally *not* an `Iterator` — it carries no cursor
-/// state.  Execution state ("which command are we on?") belongs to the
-/// consumer; `TweenController` owns the cursor that walks this queue.
+/// state. Execution state belongs to the consumer; `TweenController` consumes
+/// this queue as commands execute.
 #[derive(Clone, Debug)]
 pub struct CommandQueue {
     commands: Vec<TurtleCommand>,
@@ -115,8 +115,8 @@ impl Default for CommandQueue {
 /// Consuming iteration — yields every command in order.
 ///
 /// This is used by `CommandQueue::extend` and `TweenController::append_commands`
-/// to drain one queue into another.  It does *not* imply that `CommandQueue`
-/// itself is stateful; the cursor always lives in the consumer.
+/// to drain one queue into another. It does *not* imply that `CommandQueue`
+/// itself is stateful; execution state is managed by the consumer.
 impl IntoIterator for CommandQueue {
     type Item = TurtleCommand;
     type IntoIter = std::vec::IntoIter<TurtleCommand>;
