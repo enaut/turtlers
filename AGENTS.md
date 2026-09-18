@@ -8,21 +8,23 @@ Rust workspace with turtle graphics implementations. **Primary focus: `turtle-li
 ```
 turtlers/
 ├── turtle-lib/        # MAIN LIBRARY - Macroquad + Lyon (focus here)
-├── turtle-lib-macros/ # Proc macro for turtle_main
-└── examples/          # 15+ examples including threading patterns
+│   └── examples/      # 30 examples including threading patterns
+└── turtle-lib-macros/ # Proc macro for turtle_main
 ```
 
 ## Architecture (`turtle-lib`)
 
-### Core Design Pattern: Persistent Controllers + Command Queues
+### Core Design Pattern: Turtle Entities + Persistent Animation Controllers
 - **Builder API** (`TurtlePlan`) accumulates commands into immutable `CommandQueue`
-- **TurtleApp** maintains persistent `Vec<TweenController>` (one per turtle with embedded turtle_id)
-- **TweenController** manages command execution and animation state
+- **TurtleWorld** maintains persistent `Vec<Turtle>` (`world.turtles`), each encapsulating state and a `TweenController`
+- **TweenController** manages command execution, queue consumption, and animation interpolation per turtle
 - **Lyon Tessellation** converts all primitives to GPU meshes
 - **Multi-Turtle** support: Create multiple turtles with `add_turtle()` or threading channels
 
-### Key Architectural Decision: Turtle ID Storage
-**Critical**: After recent refactoring, `turtle_id` is now **stored in TweenController** (not derived from Vec index). This makes rendering robust when turtles/controllers are sparse or deleted.
+### Key Architectural Decision: Turtle Entity Encapsulation
+Each turtle in `TurtleWorld` is represented by a `Turtle` struct (`state.rs`) storing its own `turtle_id`, `TurtleParams`, fill state, tessellated drawing commands, SVG log, and an embedded `TweenController`.
+- `turtle_id` is stored directly on `Turtle` (and passed to `TweenController::update` for logging and side effects); `TweenController` itself manages animation state without needing turtle identity.
+- Rendering (`drawing.rs`) iterates through `world.turtles` sequentially, directly accessing each turtle's `tween_controller.current_tween()`, `commands`, and `filling`.
 
 ### Key Files
 ```
@@ -31,7 +33,7 @@ src/
 ├── builders.rs         - Fluent API traits (forward/right/circle/reset/etc)
 ├── commands.rs         - TurtleCommand enum (Move/Turn/Circle/Reset/etc)
 ├── execution.rs        - Command execution (immediate) + state updates
-├── tweening.rs         - Animation + tween interpolation (CommandTween embeds turtle_id)
+├── tweening.rs         - Animation + tween interpolation (TweenController per Turtle)
 ├── drawing.rs          - Lyon mesh rendering with Macroquad
 ├── state.rs            - Turtle, TurtleParams, TurtleWorld (persistent state)
 ├── tessellation.rs     - Lyon integration (polygons/strokes/fills/arcs)
@@ -54,15 +56,15 @@ src/
 - Example: Donut = outer circle (pen_down) → pen_up → inner circle → end_fill
 
 **3. Animation Modes**:
-- Speed `>= 999`: Instant mode (no tweening, executes immediately)
-- Speed `< 999`: Animated mode (tweens with CubicInOut easing, ~duration based on distance/speed)
+- Speed `>= 1000`: Instant mode (no tweening, executes with `max(1, speed - 1000)` draw calls per frame)
+- Speed `< 1000`: Animated mode (tweens with CubicInOut easing, duration based on distance/speed)
 - Dynamic switching via `SetSpeed` command mid-animation
 
 **4. Multi-Turtle Architecture**:
-- Each turtle owns a persistent `TweenController` with embedded `turtle_id`
-- Rendering finds active tween by checking `controller.current_tween().turtle_id` (not Vec index)
+- Each turtle in `world.turtles` owns its persistent `TweenController`
+- Rendering directly inspects each turtle's active tween via `turtle.tween_controller.current_tween()` during sequential traversal of `world.turtles`
 - Supports concurrent animation of multiple turtles
-- Example: Hangman uses `turtle_command_channel()` for blocking stdin on separate thread
+- Threading channels: `create_turtle_channel(buffer_size)` returns `TurtleCommandSender`, with the receiver managed internally by `TurtleApp`
 
 **5. Threading Pattern** (for interactive apps like Hangman):
 - `create_turtle_channel(buffer_size)` returns `TurtleCommandSender` (clonable, Send)
@@ -191,11 +193,10 @@ RUST_LOG=turtle_lib=debug cargo run --example yinyang
 - Preserves `turtle_id` after reset
 - Called via `execute_command()` in both instant and animated modes
 
-### Turtle ID Robustness
-- **Before**: `turtle_id` derived from Vec index (fragile if controllers deleted)
-- **After**: `turtle_id` embedded in `TweenController` and `CommandTween`
-- Rendering finds active tween via `find_map(|c| c.current_tween())` → uses `tween.turtle_id` directly
-- Safe for sparse/dynamic turtle creation
+### Turtle Entity and State Encapsulation
+- Each `Turtle` struct owns its `turtle_id`, visual `params`, `filling` state, tessellated `commands`, `svg_log`, and `tween_controller`
+- `TweenController` is responsible purely for command queue management and interpolation, decoupled from turtle identity
+- Rendering iterates sequentially over `world.turtles`, accessing each turtle's `commands`, active tween (`turtle.tween_controller.current_tween()`), and live fill preview in place
 
 ### Lyon Tessellation
 - All drawing → `tessellate_arc/stroke/circle/multi_contour` → `MeshData` → Macroquad `Mesh`
@@ -208,13 +209,13 @@ RUST_LOG=turtle_lib=debug cargo run --example yinyang
 ### Main Dependencies
 - `macroquad = "0.4"` - Window/rendering framework
 - `lyon = "1.0"` - Tessellation (fills, strokes, circles)
-- `tween = "2.1.0"` - Animation easing (CubicInOut)
+- `tween = "2.2.0"` - Animation easing (CubicInOut)
 - `tracing = "0.1"` - Optional logging (zero cost when unused)
-- `crossbeam-channel` - Threading pattern support (if used)
+- `crossbeam = "0.8"` - Threading pattern support (channels)
 
 ## What NOT to Do
 
-- Don't derive `turtle_id` from Vec index for rendering (use embedded id)
+- Don't assume `TweenController` stores `turtle_id` or look up active tweens globally by ID (rendering iterates `world.turtles` and inspects `turtle.tween_controller` directly)
 - Don't add `use macroquad::prelude::*` without explicit need (causes unused imports)
 - Don't manually triangulate—always use Lyon `tessellate_*` functions
 - Don't separate Forward/Backward—use negative `Move` values
