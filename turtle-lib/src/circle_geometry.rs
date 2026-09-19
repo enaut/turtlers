@@ -111,74 +111,7 @@ impl CircleGeometry {
         )
     }
 
-    /// Calculate position at a given progress (0.0 to 1.0) through `total_angle`
-    #[must_use]
-    pub fn position_at_progress(&self, total_angle: f32, progress: f32) -> Vec2 {
-        let angle_traveled = total_angle * progress;
-        self.position_at_angle(angle_traveled)
-    }
 
-    /// Get the angle traveled from start position to a given position
-    #[must_use]
-    pub fn angle_to_position(&self, position: Vec2) -> f32 {
-        let displacement = position - self.center;
-        let current_angle = displacement.y.atan2(displacement.x);
-
-        let mut angle_diff = match self.direction {
-            CircleDirection::Left => self.start_angle_from_center - current_angle,
-            CircleDirection::Right => current_angle - self.start_angle_from_center,
-        };
-
-        // Normalize to [0, 2π)
-        if angle_diff < 0.0 {
-            angle_diff += 2.0 * std::f32::consts::PI;
-        }
-
-        angle_diff
-    }
-
-    /// Get `draw_arc` parameters for the full arc
-    /// Returns (`rotation_degrees`, `arc_degrees`) for macroquad's `draw_arc`
-    #[must_use]
-    pub fn draw_arc_params(&self, total_angle_degrees: f32) -> (f32, f32) {
-        match self.direction {
-            CircleDirection::Left => {
-                // For left (counter-clockwise), we need to draw counter-clockwise from end back to start
-                // so we start at (start - total_angle) and draw total_angle counter-clockwise
-                let end_angle = self.start_angle_from_center - total_angle_degrees.to_radians();
-                (end_angle.to_degrees(), total_angle_degrees)
-            }
-            CircleDirection::Right => {
-                // For right (clockwise), draw from start
-                (
-                    self.start_angle_from_center.to_degrees(),
-                    total_angle_degrees,
-                )
-            }
-        }
-    }
-
-    /// Get `draw_arc` parameters for a partial arc (during tweening)
-    /// Returns (`rotation_degrees`, `arc_degrees`) for macroquad's `draw_arc`
-    #[must_use]
-    pub fn draw_arc_params_partial(&self, angle_traveled: f32) -> (f32, f32) {
-        let angle_traveled_degrees = angle_traveled.to_degrees();
-
-        match self.direction {
-            CircleDirection::Left => {
-                // Draw from current position backwards (counter-clockwise) to start
-                let current_angle = self.start_angle_from_center - angle_traveled;
-                (current_angle.to_degrees(), angle_traveled_degrees)
-            }
-            CircleDirection::Right => {
-                // Draw from start, counter-clockwise
-                (
-                    self.start_angle_from_center.to_degrees(),
-                    angle_traveled_degrees,
-                )
-            }
-        }
-    }
 }
 
 #[cfg(test)]

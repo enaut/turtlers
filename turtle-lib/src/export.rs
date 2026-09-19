@@ -1,5 +1,5 @@
 //! Export backend trait and core export types.
-
+#[cfg(feature = "svg")]
 use crate::state::TurtleWorld;
 use crate::TurtlePlan;
 
@@ -17,6 +17,7 @@ pub enum DrawingFormat {
     // Additional formats: Png, Pdf, …
 }
 
+#[cfg(feature = "svg")]
 pub(crate) trait DrawingExporter {
     /// Export the drawing to the specified format and filename
     ///
@@ -55,12 +56,8 @@ where
         let mut turtle = crate::create_turtle_plan();
         build_commands(&mut turtle);
 
-        let mut app = crate::TurtleApp::new().with_commands(turtle.build());
-        app.set_all_turtles_speed(crate::AnimationSpeed::Instant(1000));
-
-        while !app.is_complete() {
-            app.step_animations();
-        }
+        let mut app = crate::TurtleApp::new();
+        app.execute_immediate(0, turtle);
 
         app.export_drawing(filename, crate::export::DrawingFormat::Svg)
     }

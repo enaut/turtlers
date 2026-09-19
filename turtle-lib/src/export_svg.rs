@@ -4,15 +4,31 @@
 pub mod svg_export {
     use crate::export::{DrawingExporter, ExportError};
     use crate::state::{SvgRecord, TurtleWorld};
+    use std::fmt::Write;
     use std::fs::File;
     use svg::{
         node::element::{Circle, Line, Text as SvgText},
         Document,
     };
 
+    fn update_bounds(
+        min_x: &mut f32,
+        max_x: &mut f32,
+        min_y: &mut f32,
+        max_y: &mut f32,
+        x: f32,
+        y: f32,
+    ) {
+        *min_x = min_x.min(x);
+        *max_x = max_x.max(x);
+        *min_y = min_y.min(y);
+        *max_y = max_y.max(y);
+    }
+
     pub struct SvgExporter;
 
     impl DrawingExporter for SvgExporter {
+        #[allow(clippy::too_many_lines)]
         fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError> {
             let mut doc = Document::new();
 
@@ -20,20 +36,6 @@ pub mod svg_export {
             let mut max_x = f32::NEG_INFINITY;
             let mut min_y = f32::INFINITY;
             let mut max_y = f32::NEG_INFINITY;
-
-            fn update_bounds(
-                min_x: &mut f32,
-                max_x: &mut f32,
-                min_y: &mut f32,
-                max_y: &mut f32,
-                x: f32,
-                y: f32,
-            ) {
-                *min_x = min_x.min(x);
-                *max_x = max_x.max(x);
-                *min_y = min_y.min(y);
-                *max_y = max_y.max(y);
-            }
 
             for turtle in &world.turtles {
                 for record in &turtle.svg_log.records {
@@ -110,7 +112,7 @@ pub mod svg_export {
                             } else {
                                 // Partial arc — emit as <path A …>
                                 let end = geom.position_at_angle(angle.as_radians().value());
-                                let large_arc = if angle.value() > 180.0 { 1 } else { 0 };
+                                let large_arc = i32::from(angle.value() > 180.0);
                                 let sweep = match direction {
                                     crate::circle_geometry::CircleDirection::Left => 0,
                                     crate::circle_geometry::CircleDirection::Right => 1,
@@ -154,9 +156,9 @@ pub mod svg_export {
                                     if i > 0 {
                                         d.push(' ');
                                     }
-                                    d.push_str(&format!("M {} {}", contour[0].x, contour[0].y));
+                                    let _ = write!(d, "M {} {}", contour[0].x, contour[0].y);
                                     for point in contour.iter().skip(1) {
-                                        d.push_str(&format!(" L {} {}", point.x, point.y));
+                                        let _ = write!(d, " L {} {}", point.x, point.y);
                                     }
                                     d.push_str(" Z");
                                 }
@@ -227,9 +229,9 @@ pub mod svg_export {
         let g = (color.g * 255.0) as u8;
         let b = (color.b * 255.0) as u8;
         if color.a < 1.0 {
-            format!("rgba({},{},{},{})", r, g, b, color.a)
+            format!("rgba({r},{g},{b},{})", color.a)
         } else {
-            format!("rgb({},{},{})", r, g, b)
+            format!("rgb({r},{g},{b})")
         }
     }
 }

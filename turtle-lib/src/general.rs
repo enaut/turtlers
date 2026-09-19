@@ -20,8 +20,7 @@ pub type Precision = f32;
 /// - internal render-space state uses Macroquad-style Y-down coordinates
 pub type Coordinate = Vec2;
 
-/// Visibility flag for turtle
-pub type Visibility = bool;
+
 
 /// Execution speed setting
 /// - `Instant(draw_calls)`: Fast execution with limited draw calls per frame (speed - 1000, minimum 1)

@@ -93,7 +93,6 @@ pub(crate) fn execute_command_side_effects(
                 BLACK
             });
             *filling = Some(FillState {
-                start_position: params.position,
                 contours: Vec::new(),
                 current_contour: vec![params.position],
                 fill_color,

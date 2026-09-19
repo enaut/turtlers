@@ -77,7 +77,6 @@ pub struct TurtleCommandSender {
 /// Paired with `TurtleCommandSender` via `turtle_command_channel()`.
 /// Automatically managed by `TurtleApp::process_commands()`.
 pub(crate) struct TurtleCommandReceiver {
-    turtle_id: usize,
     rx: Receiver<CommandQueue>,
 }
 
@@ -142,12 +141,6 @@ impl TurtleCommandSender {
 }
 
 impl TurtleCommandReceiver {
-    /// Get the turtle ID this receiver is bound to
-    #[must_use]
-    pub fn turtle_id(&self) -> usize {
-        self.turtle_id
-    }
-
     /// Drain all pending commands for this turtle (non-blocking)
     ///
     /// # Examples
@@ -168,24 +161,6 @@ impl TurtleCommandReceiver {
     #[must_use]
     pub fn recv_all(&self) -> Vec<CommandQueue> {
         self.rx.try_iter().collect()
-    }
-
-    /// Try to receive one command batch (non-blocking)
-    #[must_use]
-    pub fn try_recv(&self) -> Option<CommandQueue> {
-        self.rx.try_recv().ok()
-    }
-
-    /// Check if this receiver's queue is empty
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.rx.is_empty()
-    }
-
-    /// Get the number of pending command batches
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.rx.len()
     }
 }
 
@@ -217,6 +192,6 @@ pub(crate) fn turtle_command_channel(
     let (tx, rx) = bounded(buffer_size);
     (
         TurtleCommandSender { turtle_id, tx },
-        TurtleCommandReceiver { turtle_id, rx },
+        TurtleCommandReceiver { rx },
     )
 }

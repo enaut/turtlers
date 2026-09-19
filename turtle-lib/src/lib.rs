@@ -253,6 +253,11 @@ impl TurtleApp {
 
     /// Execute a plan immediately on a specific turtle (no animation)
     pub fn execute_immediate(&mut self, turtle_id: usize, plan: TurtlePlan) {
+        // Ensure turtle exists
+        while self.world.turtles.len() <= turtle_id {
+            self.world.add_turtle();
+        }
+
         for ref cmd in plan.build() {
             execution::execute_command_with_id(cmd, turtle_id, &mut self.world);
         }
@@ -393,16 +398,7 @@ impl TurtleApp {
         }
     }
 
-    /// Get reference to the world state
-    #[must_use]
-    pub(crate) fn world(&self) -> &TurtleWorld {
-        &self.world
-    }
 
-    /// Get mutable reference to the world state
-    pub(crate) fn world_mut(&mut self) -> &mut TurtleWorld {
-        &mut self.world
-    }
 }
 
 impl Default for TurtleApp {

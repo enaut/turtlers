@@ -54,7 +54,6 @@ pub(crate) struct TweenController {
 
 #[derive(Clone, Debug)]
 pub(crate) struct CommandTween {
-    pub(crate) turtle_id: usize,
     pub(crate) command: TurtleCommand,
     pub(crate) start_time: f64,
     pub(crate) duration: f64,
@@ -316,7 +315,6 @@ impl TweenController {
             );
 
             self.current_tween = Some(CommandTween {
-                turtle_id,
                 command,
                 start_time: current_time(),
                 duration,
@@ -396,14 +394,14 @@ pub(crate) fn normalize_angle(angle: f32) -> f32 {
 
 #[inline]
 fn current_time() -> f64 {
-    #[cfg(test)]
+    #[cfg(not(target_arch = "wasm32"))]
     {
         use std::sync::OnceLock;
         use std::time::Instant;
         static START: OnceLock<Instant> = OnceLock::new();
         START.get_or_init(Instant::now).elapsed().as_secs_f64()
     }
-    #[cfg(not(test))]
+    #[cfg(target_arch = "wasm32")]
     {
         macroquad::time::get_time()
     }
