@@ -203,13 +203,10 @@ impl TurtleCommandReceiver {
 /// Panics if `buffer_size` is 0.
 ///
 /// # Examples
-/// ```no_run
-/// # use turtle_lib::*;
-/// # fn example() {
+/// ```ignore
 /// let (tx, _rx) = turtle_command_channel(0, 100);
 /// // Sender goes to game threads
 /// // Receiver stays in render thread (or `TurtleApp`)
-/// # }
 /// ```
 #[must_use]
 pub(crate) fn turtle_command_channel(

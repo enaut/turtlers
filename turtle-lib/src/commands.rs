@@ -1,13 +1,13 @@
 //! Turtle commands and command queue
 
-use crate::general::{AnimationSpeed, Color, Coordinate, Degrees, FontSize, Precision, Radians};
+use crate::general::{AnimationSpeed, Color, Coordinate, Degrees, FontSize, Length, Precision};
 use crate::shapes::TurtleShape;
 
 /// Individual turtle commands
 #[derive(Clone, Debug)]
 pub enum TurtleCommand {
     // Movement (positive = forward, negative = backward)
-    Move(Precision),
+    Move(Length),
 
     // Rotation (positive = right/clockwise, negative = left/counter-clockwise)
     // Stored in degrees — the natural unit at the user-facing API boundary.
@@ -15,7 +15,7 @@ pub enum TurtleCommand {
 
     // Circle drawing
     Circle {
-        radius: Precision,
+        radius: Length,
         angle: Degrees, // sweep angle — degrees, as supplied by the user
         steps: usize,
         direction: crate::circle_geometry::CircleDirection,
@@ -34,10 +34,9 @@ pub enum TurtleCommand {
 
     // Position
     Goto(Coordinate),
-    /// Heading stored as internal radians (Y-down render-space convention).
-    /// Values passed via `TurtlePlan::set_heading` are converted from
-    /// user-facing degrees before this command is enqueued.
-    SetHeading(Radians),
+    /// Heading stored in user degrees (Cartesian convention: 0° = East, 90° = North).
+    /// Conversion to internal screen-space heading is performed when executed.
+    SetHeading(Degrees),
 
     // Visibility
     ShowTurtle,

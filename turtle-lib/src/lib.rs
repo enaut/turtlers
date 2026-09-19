@@ -106,6 +106,7 @@ impl TurtleApp {
         filename: &str,
         format: export::DrawingFormat,
     ) -> Result<(), export::ExportError> {
+        let _ = filename;
         match format {
             #[cfg(feature = "svg")]
             export::DrawingFormat::Svg => {
@@ -369,12 +370,6 @@ impl TurtleApp {
             .turtles
             .iter()
             .all(|turtle| turtle.tween_controller.is_complete())
-    }
-
-    /// Check if all animations are complete (alias for is_complete)
-    #[must_use]
-    pub fn all_animations_complete(&self) -> bool {
-        self.is_complete()
     }
 
     /// Set the animation speed for all turtles

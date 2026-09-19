@@ -1,7 +1,7 @@
 //! Builder pattern traits for creating turtle command sequences
 
 use crate::commands::{CommandQueue, TurtleCommand};
-use crate::general::{AnimationSpeed, Color, Coordinate, Degrees, FontSize, Precision};
+use crate::general::{AnimationSpeed, Color, Coordinate, Degrees, FontSize, Length, Precision};
 use crate::shapes::{ShapeType, TurtleShape};
 
 /// Trait for adding commands to a queue
@@ -33,9 +33,9 @@ pub trait DirectionalMovement: WithCommands {
     /// ```
     fn forward<T>(&mut self, distance: T) -> &mut Self
     where
-        T: Into<Precision>,
+        T: Into<Length>,
     {
-        let dist: Precision = distance.into();
+        let dist: Length = distance.into();
         self.get_commands_mut().push(TurtleCommand::Move(dist));
         self
     }
@@ -61,9 +61,9 @@ pub trait DirectionalMovement: WithCommands {
     /// ```
     fn backward<T>(&mut self, distance: T) -> &mut Self
     where
-        T: Into<Precision>,
+        T: Into<Length>,
     {
-        let dist: Precision = distance.into();
+        let dist: Length = distance.into();
         self.get_commands_mut().push(TurtleCommand::Move(-dist));
         self
     }
@@ -159,10 +159,10 @@ pub trait CurvedMovement: WithCommands {
     /// ```
     fn circle_left<R, A>(&mut self, radius: R, angle: A, steps: usize) -> &mut Self
     where
-        R: Into<Precision>,
+        R: Into<Length>,
         A: Into<Degrees>,
     {
-        let r: Precision = radius.into();
+        let r: Length = radius.into();
         self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
             angle: angle.into(),
@@ -205,10 +205,10 @@ pub trait CurvedMovement: WithCommands {
     /// ```
     fn circle_right<R, A>(&mut self, radius: R, angle: A, steps: usize) -> &mut Self
     where
-        R: Into<Precision>,
+        R: Into<Length>,
         A: Into<Degrees>,
     {
-        let r: Precision = radius.into();
+        let r: Length = radius.into();
         self.get_commands_mut().push(TurtleCommand::Circle {
             radius: r,
             angle: angle.into(),
@@ -370,10 +370,7 @@ impl TurtlePlan {
     /// }
     /// ```
     pub fn set_heading<T: Into<Degrees>>(&mut self, heading: T) -> &mut Self {
-        // Convert user-facing turtle heading (degrees, Y-up mental model)
-        // to internal radians used by the render-space pipeline.
-        self.queue
-            .push(TurtleCommand::SetHeading(-heading.into().as_radians()));
+        self.queue.push(TurtleCommand::SetHeading(heading.into()));
         self
     }
 

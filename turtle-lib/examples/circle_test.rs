@@ -10,7 +10,7 @@ fn draw(turtle: &mut TurtlePlan) {
     turtle.set_pen_color(RED);
     turtle.set_pen_width(0.5);
     turtle.left(90.0);
-    turtle.set_speed(999);
+    turtle.set_speed(1000);
     turtle.circle_left(100.0, 540.0, 72); // partial circle to the left
 
     turtle.begin_fill();

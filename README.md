@@ -6,7 +6,7 @@ A modern turtle graphics library for Rust built on [Macroquad](https://macroquad
 
 - 🎨 **Simple Builder API**: Chain commands like `forward(100).right(90)`
 - ⚡ **Smooth Animations**: Tweening support with easing functions and live fill preview
-- 🚀 **Instant Mode**: Execute commands immediately without animation (speed ≥ 999)
+- 🚀 **Instant Mode**: Execute commands immediately without animation (speed ≥ 1000)
 - 🎯 **High-Quality Rendering**: Complete Lyon tessellation pipeline with GPU acceleration
 - 🫟 **Multi-Contour Fills**: Automatic hole detection with EvenOdd fill rule - draw cheese with holes!
 - 📐 **Self-Intersecting Paths**: Stars, complex shapes - all handled correctly
@@ -99,14 +99,14 @@ plan.begin_fill();
 plan.end_fill();  // Auto-closes and applies fill
 
 // Appearance
-plan.set_color(RED);
+plan.set_pen_color(RED);
 plan.set_pen_width(5.0);
 plan.hide();
 plan.show();
 
 // Speed control (dynamic)
-plan.set_speed(100);  // Animated mode (< 999)
-plan.set_speed(1000); // Instant mode (>= 999)
+plan.set_speed(100);  // Animated mode (< 1000)
+plan.set_speed(1000); // Instant mode (>= 1000)
 
 // Turtle shapes
 plan.shape(ShapeType::Triangle);
@@ -136,7 +136,7 @@ let mut plan = create_turtle_plan();
 // Fast initial positioning (instant mode)
 plan.set_speed(1000);
 plan.pen_up();
-plan.goto(vec2(-100.0, -100.0));
+plan.go_to(vec2(-100.0, -100.0));
 
 // Slow animated drawing
 plan.set_speed(50);
@@ -219,7 +219,7 @@ You can also export SVG programmatically from your code:
 use turtle_lib::*;
 
 // Create your drawing
-let mut plan = create_turtle();
+let mut plan = create_turtle_plan();
 plan.forward(100).right(90).forward(100);
 
 // Create app
@@ -252,8 +252,8 @@ cargo run --example square
 cargo run --example koch
 cargo run --example shapes
 cargo run --example yinyang
-cargo run --example stern
-cargo run --example nikolaus
+cargo run --example star
+cargo run --example house_of_nikolaus
 
 # SVG export example (requires --features svg)
 cargo run --example export_svg --features svg
@@ -274,8 +274,8 @@ RUST_LOG=turtle_lib=debug cargo run --example logging_example
 - **square.rs**: Basic square drawing
 - **koch.rs**: Koch snowflake fractal
 - **shapes.rs**: Demonstrates different turtle shapes
-- **stern.rs**: Star pattern drawing
-- **nikolaus.rs**: Nikolaus (Santa) drawing
+- **star.rs**: Star pattern drawing
+- **house_of_nikolaus.rs**: House of Nikolaus (Eulerian path puzzle)
 
 #### Fill Examples
 
@@ -297,7 +297,7 @@ RUST_LOG=turtle_lib=debug cargo run --example logging_example
 ### Basic Fill
 
 ```rust
-let mut plan = create_turtle();
+let mut plan = create_turtle_plan();
 plan.set_fill_color(RED);
 plan.begin_fill();
 
@@ -321,7 +321,7 @@ plan.circle_left(90.0, 360.0, 72);
 
 // pen_up() closes current contour
 plan.pen_up();
-plan.goto(vec2(0.0, -30.0));
+plan.go_to(vec2(0.0, -30.0));
 
 // pen_down() starts new contour
 plan.pen_down();

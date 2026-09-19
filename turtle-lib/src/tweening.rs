@@ -180,7 +180,7 @@ impl TweenController {
                     calculate_circle_position(
                         tween.start_params.position,
                         Radians::new(tween.start_params.heading),
-                        *radius,
+                        radius.value(),
                         angle_traveled,
                         *direction,
                     )
@@ -413,7 +413,7 @@ fn current_time() -> f64 {
 mod tests {
     use super::*;
     use crate::commands::TurtleCommand;
-    use crate::general::Degrees;
+    use crate::general::{Degrees, Length};
     use crate::state::TurtleParams;
 
     fn make_test_params() -> TurtleParams {
@@ -433,10 +433,10 @@ mod tests {
     #[test]
     fn test_instant_mode_drains_queue() {
         let mut queue = CommandQueue::new();
-        queue.push(TurtleCommand::Move(100.0));
+        queue.push(TurtleCommand::Move(Length::new(100.0)));
         queue.push(TurtleCommand::Turn(Degrees::new(90.0)));
         queue.push(TurtleCommand::PenUp);
-        queue.push(TurtleCommand::Move(50.0));
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
 
         let mut controller = TweenController::new(queue, AnimationSpeed::Instant(100));
         assert_eq!(controller.queue.len(), 4);
@@ -467,7 +467,7 @@ mod tests {
             let mut batch = CommandQueue::new();
             batch.push(TurtleCommand::Reset);
             batch.push(TurtleCommand::PenDown);
-            batch.push(TurtleCommand::Move(10.0));
+            batch.push(TurtleCommand::Move(Length::new(10.0)));
             batch.push(TurtleCommand::Turn(Degrees::new(30.0)));
 
             controller.append_commands(batch);
@@ -485,11 +485,11 @@ mod tests {
     fn test_instant_mode_respects_batch_limit_and_retains_pending() {
         let mut queue = CommandQueue::new();
         // 5 drawing commands
-        queue.push(TurtleCommand::Move(10.0));
-        queue.push(TurtleCommand::Move(20.0));
-        queue.push(TurtleCommand::Move(30.0));
-        queue.push(TurtleCommand::Move(40.0));
-        queue.push(TurtleCommand::Move(50.0));
+        queue.push(TurtleCommand::Move(Length::new(10.0)));
+        queue.push(TurtleCommand::Move(Length::new(20.0)));
+        queue.push(TurtleCommand::Move(Length::new(30.0)));
+        queue.push(TurtleCommand::Move(Length::new(40.0)));
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
 
         // Limit to 2 draw calls per frame
         let mut controller = TweenController::new(queue, AnimationSpeed::Instant(2));
@@ -520,8 +520,8 @@ mod tests {
     #[test]
     fn test_animated_mode_pops_to_current_tween() {
         let mut queue = CommandQueue::new();
-        queue.push(TurtleCommand::Move(100.0));
-        queue.push(TurtleCommand::Move(50.0));
+        queue.push(TurtleCommand::Move(Length::new(100.0)));
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
 
         let mut controller = TweenController::new(
             queue,

@@ -59,7 +59,7 @@ where
             let mut app = crate::TurtleApp::new().with_commands(turtle.build());
             app.set_all_turtles_speed(crate::AnimationSpeed::Instant(1000));
 
-            while !app.all_animations_complete() {
+            while !app.is_complete() {
                 app.update();
             }
 

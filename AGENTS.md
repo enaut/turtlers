@@ -124,7 +124,7 @@ let tx = turtle_tx.clone();
 std::thread::spawn(move || {
     loop {
         let letter = get_input();  // Blocks
-        let mut plan = create_turtle();
+        let mut plan = create_turtle_plan();
         plan.forward(50.0);
         tx.send(plan.build()).ok();
     }

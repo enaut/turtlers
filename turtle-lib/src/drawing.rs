@@ -62,7 +62,7 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                         direction,
                     } => {
                         // Draw arc segments from start to current position
-                        draw_tween_arc(tween, *radius, *angle, *steps, *direction);
+                        draw_tween_arc(tween, radius.value(), *angle, *steps, *direction);
                     }
                     _ if should_draw_tween_line(&tween.command) => {
                         // Draw straight line for other movement commands (use tween's current position)
@@ -133,7 +133,7 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                         let geom = CircleGeometry::new(
                             tween.start_params.position,
                             Radians::new(tween.start_params.heading),
-                            *radius,
+                            radius.value(),
                             *direction,
                         );
                         let elapsed = get_time() - tween.start_time;
@@ -147,7 +147,7 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                         let sweep_so_far = angle.as_radians().value() * eased_progress;
                         for pt in arc_points(
                             geom.center,
-                            *radius,
+                            radius.value(),
                             geom.start_angle_from_center,
                             sweep_so_far,
                             samples_to_draw,

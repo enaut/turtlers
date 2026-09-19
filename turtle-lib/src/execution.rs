@@ -242,7 +242,7 @@ pub(crate) fn record_fill_vertices_after_movement(
             let geom = CircleGeometry::new(
                 start_state.position,
                 Radians::new(start_state.heading),
-                *radius,
+                radius.value(),
                 *direction,
             );
             if let Some(ref mut fill_state) = filling {
@@ -252,7 +252,7 @@ pub(crate) fn record_fill_vertices_after_movement(
                         turtle_id,
                         center_x = geom.center.x,
                         center_y = geom.center.y,
-                        radius,
+                        radius = radius.value(),
                         steps,
                         num_samples,
                         "Recording arc vertices"
@@ -268,8 +268,8 @@ pub(crate) fn record_fill_vertices_after_movement(
                             }
                         };
                         let vertex = Coordinate::new(
-                            geom.center.x + radius * current_angle.cos(),
-                            geom.center.y + radius * current_angle.sin(),
+                            geom.center.x + radius.value() * current_angle.cos(),
+                            geom.center.y + radius.value() * current_angle.sin(),
                         );
                         tracing::trace!(
                             turtle_id,
@@ -347,12 +347,12 @@ pub(crate) fn tessellate_command(
             let geom = CircleGeometry::new(
                 start.position,
                 Radians::new(start.heading),
-                *radius,
+                radius.value(),
                 *direction,
             );
             let mesh = tessellation::tessellate_arc(
                 geom.center,
-                *radius,
+                radius.value(),
                 geom.start_angle_from_center.to_degrees(),
                 angle.value(),
                 start.color,
@@ -402,7 +402,7 @@ pub(crate) fn push_svg_for_draw(
             svg_log.push(SvgRecord::Arc {
                 start_position: start.position,
                 start_heading: start.heading,
-                radius: *radius,
+                radius: radius.value(),
                 angle: *angle,
                 direction: *direction,
                 color: start.color,
@@ -474,7 +474,7 @@ pub(crate) fn execute_command_with_id(
 mod tests {
     use super::*;
     use crate::commands::TurtleCommand;
-    use crate::general::Degrees;
+    use crate::general::{Degrees, Length};
     use crate::shapes::TurtleShape;
     use crate::tweening::TweenController;
 
@@ -509,7 +509,7 @@ mod tests {
         assert_eq!(state.params.heading, 0.0);
 
         // Forward 100 - should move to (100, 0)
-        execute_command(&TurtleCommand::Move(100.0), &mut state);
+        execute_command(&TurtleCommand::Move(Length::new(100.0)), &mut state);
         assert!(
             (state.params.position.x - 100.0).abs() < 0.01,
             "After forward(100): x = {}",
@@ -544,7 +544,7 @@ mod tests {
         );
 
         // Forward 50 - should move north (negative Y) to (100, -50)
-        execute_command(&TurtleCommand::Move(50.0), &mut state);
+        execute_command(&TurtleCommand::Move(Length::new(50.0)), &mut state);
         assert!(
             (state.params.position.x - 100.0).abs() < 0.01,
             "Final position: x = {} (expected 100.0)",
