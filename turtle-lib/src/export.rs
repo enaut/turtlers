@@ -26,7 +26,9 @@ pub(crate) trait DrawingExporter {
     fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError>;
 }
 
-pub(crate) fn parse_svg_export_arg() -> Option<String> {
+/// Check command-line arguments for the `--export-svg <filename>` flag.
+#[must_use]
+pub fn parse_svg_export_arg() -> Option<String> {
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < args.len() {
@@ -38,49 +40,58 @@ pub(crate) fn parse_svg_export_arg() -> Option<String> {
     None
 }
 
+/// Headless SVG export that executes drawing commands and writes an SVG file
+/// without opening a graphics window and without calling `std::process::exit`.
+///
+/// # Errors
+///
+/// Returns `ExportError` if file I/O fails or if the `svg` feature is not enabled.
+pub fn run_headless_svg_export<F>(mut build_commands: F, filename: &str) -> Result<(), ExportError>
+where
+    F: FnMut(&mut TurtlePlan),
+{
+    #[cfg(feature = "svg")]
+    {
+        let mut turtle = crate::create_turtle_plan();
+        build_commands(&mut turtle);
+
+        let mut app = crate::TurtleApp::new().with_commands(turtle.build());
+        app.set_all_turtles_speed(crate::AnimationSpeed::Instant(1000));
+
+        while !app.is_complete() {
+            app.step_animations();
+        }
+
+        app.export_drawing(filename, crate::export::DrawingFormat::Svg)
+    }
+
+    #[cfg(not(feature = "svg"))]
+    {
+        let _ = &mut build_commands;
+        let _ = filename;
+        Err(ExportError::Format(
+            "SVG export feature is not enabled. Please rebuild with --features svg".to_string(),
+        ))
+    }
+}
+
 /// Handle the optional `--export-svg` CLI flag.
 ///
-/// The feature gating lives inside `turtle-lib`, so the `turtle_main` macro
-/// no longer needs to reference cfg flags from the consuming crate.
+/// Delegates to [`run_headless_svg_export`].
 pub fn handle_svg_export<F>(build_commands: F)
 where
     F: FnMut(&mut TurtlePlan),
 {
-    // Avoid unused warnings when the feature is disabled
-    let _ = &build_commands;
-
     if let Some(filename) = parse_svg_export_arg() {
-        #[cfg(feature = "svg")]
-        {
-            let mut build_commands = build_commands;
-            let mut turtle = crate::create_turtle_plan();
-            build_commands(&mut turtle);
-
-            let mut app = crate::TurtleApp::new().with_commands(turtle.build());
-            app.set_all_turtles_speed(crate::AnimationSpeed::Instant(1000));
-
-            while !app.is_complete() {
-                app.update();
+        match run_headless_svg_export(build_commands, &filename) {
+            Ok(()) => {
+                println!("SVG exported successfully to: {filename}");
+                std::process::exit(0);
             }
-
-            match app.export_drawing(&filename, crate::export::DrawingFormat::Svg) {
-                Ok(_) => {
-                    println!("SVG exported successfully to: {}", filename);
-                    std::process::exit(0);
-                }
-                Err(e) => {
-                    eprintln!("Error exporting SVG: {:?}", e);
-                    std::process::exit(1);
-                }
+            Err(e) => {
+                eprintln!("Error exporting SVG: {e:?}");
+                std::process::exit(1);
             }
-        }
-
-        #[cfg(not(feature = "svg"))]
-        {
-            let _ = &filename;
-            eprintln!("Error: SVG export feature is not enabled.");
-            eprintln!("Please rebuild with --features svg");
-            std::process::exit(1);
         }
     }
 }

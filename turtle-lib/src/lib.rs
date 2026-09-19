@@ -73,6 +73,9 @@ pub(crate) mod export_svg;
 // Re-export the turtle_main macro
 pub use turtle_lib_macros::turtle_main;
 
+// Re-export the macroquad crate so generated macro code can access it directly
+pub use macroquad;
+
 // Re-export common macroquad types and colors for convenience
 pub use macroquad::prelude::{
     vec2, BLACK, BLUE, DARKGRAY, GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
@@ -282,12 +285,19 @@ impl TurtleApp {
         }
     }
 
-    /// Update animation state (call every frame)
+    /// Update animation state and process window mouse events (call every frame in GUI loop)
     pub fn update(&mut self) {
         // Handle mouse panning and zoom
         self.handle_mouse_panning();
         self.handle_mouse_zoom();
 
+        self.step_animations();
+    }
+
+    /// Drive animation updates for all turtles without querying window or mouse events.
+    ///
+    /// Suitable for headless execution (such as CLI SVG export) where no graphics window exists.
+    pub fn step_animations(&mut self) {
         // Update all turtles' tween controllers
         for turtle in &mut self.world.turtles {
             // Drive this turtle's animation controller for one frame.

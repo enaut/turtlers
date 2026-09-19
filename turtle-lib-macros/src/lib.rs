@@ -63,44 +63,78 @@ use syn::{parse_macro_input, ItemFn};
 /// This expands to approximately:
 ///
 /// ```ignore
-/// use macroquad::prelude::*;
 /// use turtle_lib::*;
 ///
-/// #[macroquad::main("My Turtle Drawing")]
-/// async fn main() {
-///     // Parse CLI args for --export-svg flag
-///     let args: Vec<String> = std::env::args().collect();
-///     // ... (argument parsing logic)
-///     
-///     let mut turtle = create_turtle_plan();
-///     
-///     // Your drawing code here
-///     turtle.set_pen_color(RED);
-///     turtle.forward(100.0);
-///     turtle.right(90.0);
-///     turtle.forward(100.0);
-///
-///     let mut app = TurtleApp::new().with_commands(turtle.build());
-///
-///     // If --export-svg flag is present, export and exit
-///     // Otherwise, enter normal rendering loop
-///     loop {
-///         clear_background(WHITE);
-///         app.update();
-///         app.render();
-///         draw_text("Press ESC or Q to quit", 10.0, 40.0, 16.0, DARKGRAY);
-///         
-///         if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Q) {
-///             break;
+/// fn main() {
+///     // Handle optional SVG export headlessly without opening a window
+///     if let Some(filename) = turtle_lib::export::parse_svg_export_arg() {
+///         let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
+///             my_drawing(turtle);
+///         };
+///         if let Err(e) = turtle_lib::export::run_headless_svg_export(&mut build_commands, &filename) {
+///             eprintln!("Error exporting SVG: {:?}", e);
+///             std::process::exit(1);
 ///         }
-///         
-///         next_frame().await;
+///         return;
 ///     }
+///
+///     // Normal interactive GUI mode with window
+///     turtle_lib::macroquad::Window::new("My Turtle Drawing", async {
+///         let mut turtle = create_turtle_plan();
+///         my_drawing(&mut turtle);
+///
+///         let mut app = TurtleApp::new().with_commands(turtle.build());
+///
+///         loop {
+///             turtle_lib::macroquad::prelude::clear_background(turtle_lib::macroquad::prelude::WHITE);
+///             app.update();
+///             app.render();
+///             turtle_lib::macroquad::prelude::draw_text("Press ESC or Q to quit", 10.0, 40.0, 16.0, turtle_lib::macroquad::prelude::DARKGRAY);
+///             
+///             if turtle_lib::macroquad::prelude::is_key_pressed(turtle_lib::macroquad::prelude::KeyCode::Escape)
+///                 || turtle_lib::macroquad::prelude::is_key_pressed(turtle_lib::macroquad::prelude::KeyCode::Q)
+///             {
+///                 break;
+///             }
+///             
+///             turtle_lib::macroquad::prelude::next_frame().await;
+///         }
+///     });
 /// }
 /// ```
+fn validate_input(input_fn: &ItemFn) -> Result<(), syn::Error> {
+    if input_fn.sig.asyncness.is_some() {
+        return Err(syn::Error::new_spanned(
+            input_fn.sig.fn_token,
+            "#[turtle_main] functions cannot be async",
+        ));
+    }
+
+    if input_fn.sig.inputs.len() > 1 {
+        return Err(syn::Error::new_spanned(
+            &input_fn.sig.inputs,
+            "#[turtle_main] functions must take either 0 arguments or a single `&mut TurtlePlan`",
+        ));
+    }
+
+    if matches!(input_fn.sig.output, syn::ReturnType::Type(..)) {
+        return Err(syn::Error::new_spanned(
+            &input_fn.sig.output,
+            "#[turtle_main] functions cannot have a return type",
+        ));
+    }
+
+    Ok(())
+}
+
 #[proc_macro_attribute]
 pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
+
+    // Validate function signature
+    if let Err(err) = validate_input(&input_fn) {
+        return err.to_compile_error().into();
+    }
 
     // Parse the window title from args (default to "Turtle Graphics")
     let window_title = if args.is_empty() {
@@ -114,105 +148,138 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let fn_name = &input_fn.sig.ident;
     let fn_block = &input_fn.block;
-
-    // Check if the function has the expected signature
+    let fn_attrs = &input_fn.attrs;
     let has_turtle_param = input_fn.sig.inputs.len() == 1;
 
-    // Note: The following code has some duplication between the two branches
-    // (with/without turtle parameter). This is intentional in proc macros as
-    // we're generating different code paths, and extracting the common parts
-    // into helper functions would make the macro more complex without significant benefit.
+    let helper_name = if fn_name == "main" {
+        quote::format_ident!("__turtle_main_draw")
+    } else {
+        fn_name.clone()
+    };
 
-    let expanded = if has_turtle_param {
-        // Function takes a turtle parameter
+    let helper_fn = if has_turtle_param {
         quote! {
-            #[macroquad::main(#window_title)]
-            async fn main() {
-                // Build function reused for both export and normal rendering
-                let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
-                    #fn_name(turtle);
-                };
-
-                // Handle optional SVG export internally in turtle-lib
-                turtle_lib::export::handle_svg_export(&mut build_commands);
-
-                // Normal rendering mode (with window)
-                let mut turtle = turtle_lib::create_turtle_plan();
-
-                // Call the user's function with the turtle
-                build_commands(&mut turtle);
-
-                let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
-
-                loop {
-                    macroquad::prelude::clear_background(macroquad::prelude::WHITE);
-                    app.update();
-                    app.render();
-                    macroquad::prelude::draw_text(
-                        "Press ESC or Q to quit",
-                        10.0,
-                        40.0,
-                        16.0,
-                        macroquad::prelude::DARKGRAY
-                    );
-
-                    if macroquad::prelude::is_key_pressed(macroquad::prelude::KeyCode::Escape)
-                        || macroquad::prelude::is_key_pressed(macroquad::prelude::KeyCode::Q)
-                    {
-                        break;
-                    }
-
-                    macroquad::prelude::next_frame().await;
-                }
-            }
-
-            fn #fn_name(turtle: &mut turtle_lib::TurtlePlan) #fn_block
+            #(#fn_attrs)*
+            fn #helper_name(turtle: &mut turtle_lib::TurtlePlan) #fn_block
         }
     } else {
-        // Function takes no parameters - inline the code
         quote! {
-            #[macroquad::main(#window_title)]
-            async fn main() {
-                // Build function reused for both export and normal rendering
-                let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
-                    let turtle = turtle;
-                    #fn_block
-                };
-
-                // Handle optional SVG export internally in turtle-lib
-                turtle_lib::export::handle_svg_export(&mut build_commands);
-
-                // Normal rendering mode (with window)
-                let mut turtle = turtle_lib::create_turtle_plan();
-                build_commands(&mut turtle);
-
-                let mut app = turtle_lib::TurtleApp::new()
-                    .with_commands(turtle.build());
-
-                loop {
-                    macroquad::prelude::clear_background(macroquad::prelude::WHITE);
-                    app.update();
-                    app.render();
-                    macroquad::prelude::draw_text(
-                        "Press ESC or Q to quit",
-                        10.0,
-                        40.0,
-                        16.0,
-                        macroquad::prelude::DARKGRAY
-                    );
-
-                    if macroquad::prelude::is_key_pressed(macroquad::prelude::KeyCode::Escape)
-                        || macroquad::prelude::is_key_pressed(macroquad::prelude::KeyCode::Q)
-                    {
-                        break;
-                    }
-
-                    macroquad::prelude::next_frame().await;
-                }
+            #(#fn_attrs)*
+            fn #helper_name(turtle: &mut turtle_lib::TurtlePlan) {
+                let turtle = turtle;
+                #fn_block
             }
         }
     };
 
+    let expanded = quote! {
+        fn main() {
+            let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
+                #helper_name(turtle);
+            };
+
+            // If --export-svg flag is present, export headlessly without opening a window
+            if let Some(filename) = turtle_lib::export::parse_svg_export_arg() {
+                match turtle_lib::export::run_headless_svg_export(&mut build_commands, &filename) {
+                    Ok(()) => {
+                        println!("SVG exported successfully to: {}", filename);
+                        return;
+                    }
+                    Err(e) => {
+                        eprintln!("Error exporting SVG: {:?}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+
+            // Normal rendering mode (interactive window)
+            turtle_lib::macroquad::Window::new(#window_title, async {
+                let mut turtle = turtle_lib::create_turtle_plan();
+                #helper_name(&mut turtle);
+
+                let mut app = turtle_lib::TurtleApp::new()
+                    .with_commands(turtle.build());
+
+                loop {
+                    turtle_lib::macroquad::prelude::clear_background(turtle_lib::macroquad::prelude::WHITE);
+                    app.update();
+                    app.render();
+                    turtle_lib::macroquad::prelude::draw_text(
+                        "Press ESC or Q to quit",
+                        10.0,
+                        40.0,
+                        16.0,
+                        turtle_lib::macroquad::prelude::DARKGRAY
+                    );
+
+                    if turtle_lib::macroquad::prelude::is_key_pressed(turtle_lib::macroquad::prelude::KeyCode::Escape)
+                        || turtle_lib::macroquad::prelude::is_key_pressed(turtle_lib::macroquad::prelude::KeyCode::Q)
+                    {
+                        break;
+                    }
+
+                    turtle_lib::macroquad::prelude::next_frame().await;
+                }
+            });
+        }
+
+        #helper_fn
+    };
+
     TokenStream::from(expanded)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn test_valid_zero_args() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw() {
+                turtle.forward(100.0);
+            }
+        };
+        assert!(validate_input(&input).is_ok());
+    }
+
+    #[test]
+    fn test_valid_one_arg() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: &mut TurtlePlan) {
+                t.forward(100.0);
+            }
+        };
+        assert!(validate_input(&input).is_ok());
+    }
+
+    #[test]
+    fn test_rejects_async() {
+        let input: ItemFn = parse_quote! {
+            async fn my_draw() {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("cannot be async"));
+    }
+
+    #[test]
+    fn test_rejects_multiple_args() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: &mut TurtlePlan, extra: i32) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("must take either 0 arguments or a single"));
+    }
+
+    #[test]
+    fn test_rejects_return_type() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw() -> i32 {
+                42
+            }
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("cannot have a return type"));
+    }
 }

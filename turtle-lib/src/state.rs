@@ -376,11 +376,7 @@ impl TurtleWorld {
     pub fn new() -> Self {
         Self {
             turtles: vec![], // Start with no turtles
-            camera: Camera2D {
-                zoom: vec2(1.0 / screen_width() * 2.0, 1.0 / screen_height() * 2.0),
-                target: vec2(0.0, 0.0),
-                ..Default::default()
-            },
+            camera: Camera2D::default(),
             background_color: WHITE,
         }
     }

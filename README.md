@@ -378,6 +378,16 @@ cargo build --release
 cargo build --features svg
 ```
 
+### Optional: Faster Linker Setup
+
+For significantly faster incremental build and linking times during development on Linux, you can optionally configure `mold` or `lld` in your user-level Cargo configuration (`~/.cargo/config.toml`):
+
+```toml
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+```
+
 ## Development Status
 
 ### ✅ Completed
