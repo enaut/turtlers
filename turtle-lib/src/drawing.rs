@@ -5,13 +5,11 @@ use crate::state::{DrawCommand, TurtleParams, TurtleWorld};
 use crate::tessellation;
 use macroquad::prelude::*;
 
-
-
 /// Render the turtle world with active tween visualization.
 #[allow(clippy::too_many_lines)]
 pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
     // Update camera zoom based on current screen size to prevent stretching
-    // Apply user zoom level by dividing by it (smaller zoom value = more zoomed in)
+    // Apply user zoom level by dividing by it
     let camera = Camera2D {
         zoom: vec2(
             1.0 / screen_width() * 2.0 / zoom_level,
@@ -295,8 +293,7 @@ fn draw_tween_arc(
     );
 
     // Draw center using Lyon tessellation this helps visualizing what is done.
-    if let Ok(mesh) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0)
-    {
+    if let Ok(mesh) = crate::tessellation::tessellate_circle(geom.center, 5.0, GRAY, true, 1.0) {
         draw_mesh(&mesh);
     }
 

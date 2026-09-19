@@ -10,8 +10,8 @@ pub trait WithCommands {
     fn get_commands(self) -> CommandQueue;
 }
 
-/// Trait for forward/backward movement
-pub trait DirectionalMovement: WithCommands {
+/// Trait for turtle movement (linear, curved, and absolute positioning)
+pub trait Movement: WithCommands {
     /// Moves the turtle forward by the specified distance.
     ///
     /// The turtle moves in the direction of its current heading.
@@ -67,67 +67,40 @@ pub trait DirectionalMovement: WithCommands {
         self.get_commands_mut().push(TurtleCommand::Move(-dist));
         self
     }
-}
 
-/// Trait for turning operations
-pub trait Turnable: WithCommands {
-    /// Turns the turtle left (counter-clockwise) by the specified angle in degrees.
+    /// Moves the turtle to an absolute position.
     ///
-    /// Changes the turtle's heading without moving its position.
-    /// Does not draw anything.
+    /// The turtle moves in a straight line to the specified coordinates.
+    /// If the pen is down, a line is drawn. The turtle's heading is not changed.
+    ///
+    /// Coordinates use turtle-style Cartesian space:
+    /// - `(0, 0)` is at the center
+    /// - Positive x goes right
+    /// - Positive y goes up
+    ///
+    /// Internally, Macroquad uses Y-down screen coordinates; this command
+    /// performs the Y-axis conversion when executed.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// # use turtle_lib::*;
     /// #
-    /// #[turtle_main("Left Turn Example")]
+    /// #[turtle_main("Goto Example")]
     /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Draw a square using left turns
-    ///     for _ in 0..4 {
-    ///         turtle.forward(100.0).left(90.0);
-    ///     }
+    ///     // Draw a triangle by connecting points
+    ///     turtle.go_to(vec2(0.0, 0.0));
+    ///     turtle.go_to(vec2(100.0, 0.0));
+    ///     turtle.go_to(vec2(50.0, 86.6));
+    ///     turtle.go_to(vec2(0.0, 0.0));
     /// }
     /// ```
-    fn left<T>(&mut self, angle: T) -> &mut Self
-    where
-        T: Into<Degrees>,
-    {
+    fn go_to(&mut self, coord: impl Into<Coordinate>) -> &mut Self {
         self.get_commands_mut()
-            .push(TurtleCommand::Turn(-angle.into()));
+            .push(TurtleCommand::Goto(coord.into()));
         self
     }
 
-    /// Turns the turtle right (clockwise) by the specified angle in degrees.
-    ///
-    /// Changes the turtle's heading without moving its position.
-    /// Does not draw anything.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Right Turn Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Draw a triangle using right turns
-    ///     for _ in 0..3 {
-    ///         turtle.forward(100.0).right(120.0);
-    ///     }
-    /// }
-    /// ```
-    fn right<T>(&mut self, angle: T) -> &mut Self
-    where
-        T: Into<Degrees>,
-    {
-        self.get_commands_mut()
-            .push(TurtleCommand::Turn(angle.into()));
-        self
-    }
-}
-
-/// Trait for curved movement (circles)
-pub trait CurvedMovement: WithCommands {
     /// Draws a circular arc turning to the left (counter-clockwise).
     ///
     /// The turtle draws a circular arc with the specified radius, sweeping through
@@ -219,6 +192,502 @@ pub trait CurvedMovement: WithCommands {
     }
 }
 
+/// Trait for turning and heading operations
+pub trait Rotation: WithCommands {
+    /// Turns the turtle left (counter-clockwise) by the specified angle in degrees.
+    ///
+    /// Changes the turtle's heading without moving its position.
+    /// Does not draw anything.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Left Turn Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Draw a square using left turns
+    ///     for _ in 0..4 {
+    ///         turtle.forward(100.0).left(90.0);
+    ///     }
+    /// }
+    /// ```
+    fn left<T>(&mut self, angle: T) -> &mut Self
+    where
+        T: Into<Degrees>,
+    {
+        self.get_commands_mut()
+            .push(TurtleCommand::Turn(-angle.into()));
+        self
+    }
+
+    /// Turns the turtle right (clockwise) by the specified angle in degrees.
+    ///
+    /// Changes the turtle's heading without moving its position.
+    /// Does not draw anything.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Right Turn Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Draw a triangle using right turns
+    ///     for _ in 0..3 {
+    ///         turtle.forward(100.0).right(120.0);
+    ///     }
+    /// }
+    /// ```
+    fn right<T>(&mut self, angle: T) -> &mut Self
+    where
+        T: Into<Degrees>,
+    {
+        self.get_commands_mut()
+            .push(TurtleCommand::Turn(angle.into()));
+        self
+    }
+
+    /// Sets the turtle's absolute heading direction in degrees.
+    ///
+    /// - `0°` points to the right (east)
+    /// - `90°` points up (north)
+    /// - `180°` points left (west)
+    /// - `270°` points down (south)
+    ///
+    /// Internally, turtle heading is stored in radians in a Y-down render space.
+    /// This method converts from user-facing degrees (Y-up mental model) to that
+    /// internal representation.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Heading Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Point upward
+    ///     turtle.set_heading(90.0)
+    ///           .forward(100.0);
+    ///
+    ///     // Point left
+    ///     turtle.set_heading(180.0)
+    ///           .forward(100.0);
+    /// }
+    /// ```
+    fn set_heading<T: Into<Degrees>>(&mut self, heading: T) -> &mut Self {
+        self.get_commands_mut()
+            .push(TurtleCommand::SetHeading(heading.into()));
+        self
+    }
+}
+
+/// Trait for pen control (state, color, width)
+pub trait Pen: WithCommands {
+    /// Lifts the pen up so the turtle can move without drawing.
+    ///
+    /// When filling shapes, `pen_up()` also closes the current contour,
+    /// allowing you to create multi-contour fills (e.g., shapes with holes).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Pen Up/Down Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Move without drawing
+    ///     turtle.pen_up()
+    ///           .forward(100.0)  // No line drawn
+    ///           .pen_down()
+    ///           .forward(100.0); // Line drawn
+    ///
+    ///     // Create a donut shape (outer circle with inner hole)
+    ///     turtle.set_fill_color(BLUE)
+    ///           .begin_fill()
+    ///           .circle_left(100.0, 360.0, 72)  // Outer circle
+    ///           .pen_up()  // Close first contour
+    ///           .go_to(vec2(0.0, -30.0))
+    ///           .pen_down()  // Start second contour
+    ///           .circle_left(30.0, 360.0, 36)   // Inner circle (becomes hole)
+    ///           .end_fill();
+    /// }
+    /// ```
+    fn pen_up(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::PenUp);
+        self
+    }
+
+    /// Lowers the pen so the turtle draws when moving.
+    ///
+    /// This is the default state. When filling shapes, `pen_down()` starts
+    /// a new contour after `pen_up()` was called.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Pen Down Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     turtle.pen_up()
+    ///           .forward(50.0)    // Move without drawing
+    ///           .pen_down()       // Start drawing
+    ///           .forward(100.0);  // Line appears
+    /// }
+    /// ```
+    fn pen_down(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::PenDown);
+        self
+    }
+
+    /// Sets the pen color for drawing lines.
+    ///
+    /// The pen color affects all subsequent drawing operations (forward, backward, circles)
+    /// until changed again. Does not affect fill color.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Pen Color Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Draw with predefined colors
+    ///     turtle.set_pen_color(RED)
+    ///           .forward(100.0)
+    ///           .set_pen_color(BLUE)
+    ///           .right(90.0)
+    ///           .forward(100.0);
+    /// }
+    /// ```
+    fn set_pen_color(&mut self, color: Color) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::SetColor(color));
+        self
+    }
+
+    /// Sets the pen width (thickness) for drawing lines.
+    ///
+    /// The width is measured in pixels. Default is typically 2.0.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Pen Width Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Thin line
+    ///     turtle.set_pen_width(1.0)
+    ///           .forward(100.0);
+    ///     // Thick line
+    ///     turtle.set_pen_width(10.0)
+    ///           .forward(100.0);
+    /// }
+    /// ```
+    fn set_pen_width(&mut self, width: Precision) -> &mut Self {
+        self.get_commands_mut()
+            .push(TurtleCommand::SetPenWidth(width));
+        self
+    }
+}
+
+/// Trait for shape fill operations
+pub trait Fill: WithCommands {
+    /// Starts recording a shape to be filled.
+    ///
+    /// All turtle movements between `begin_fill()` and `end_fill()` define
+    /// the shape's outline. The shape is filled using the fill color when
+    /// `end_fill()` is called.
+    ///
+    /// Multiple contours can be created using `pen_up()` and `pen_down()`.
+    /// The `EvenOdd` fill rule automatically creates holes for inner contours.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Fill Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Fill a square
+    ///     turtle.set_fill_color(BLUE)
+    ///           .begin_fill();
+    ///     for _ in 0..4 {
+    ///         turtle.forward(100.0).right(90.0);
+    ///     }
+    ///     turtle.end_fill();
+    ///
+    ///     // Fill a circle
+    ///     turtle.pen_up().go_to(vec2(150.0, 0.0)).pen_down();
+    ///     turtle.set_fill_color(RED)
+    ///           .begin_fill()
+    ///           .circle_left(50.0, 360.0, 36)
+    ///           .end_fill();
+    /// }
+    /// ```
+    fn begin_fill(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::BeginFill);
+        self
+    }
+
+    /// Completes the fill operation started with `begin_fill()`.
+    ///
+    /// Closes the current shape and fills it with the fill color.
+    /// All contours recorded since `begin_fill()` are filled together.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("End Fill Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Triangle with fill
+    ///     turtle.set_fill_color(GREEN)
+    ///           .begin_fill();
+    ///     for _ in 0..3 {
+    ///         turtle.forward(100.0).right(120.0);
+    ///     }
+    ///     turtle.end_fill();
+    /// }
+    /// ```
+    fn end_fill(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::EndFill);
+        self
+    }
+
+    /// Sets the color used to fill shapes.
+    ///
+    /// This affects all shapes filled with `begin_fill()`/`end_fill()`.
+    /// Independent from the pen color used for outlines.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Fill Color Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Yellow fill with blue outline
+    ///     turtle.set_fill_color(YELLOW)
+    ///           .set_pen_color(BLUE)
+    ///           .begin_fill()
+    ///           .circle_left(50.0, 360.0, 36)
+    ///           .end_fill();
+    /// }
+    /// ```
+    fn set_fill_color(&mut self, color: impl Into<Color>) -> &mut Self {
+        self.get_commands_mut()
+            .push(TurtleCommand::SetFillColor(Some(color.into())));
+        self
+    }
+}
+
+/// Trait for turtle cursor visibility, shape, animation speed, and reset
+pub trait Cursor: WithCommands {
+    /// Hides the turtle cursor from view.
+    ///
+    /// The turtle will still execute commands and draw, but the cursor
+    /// (typically an arrow or triangle) won't be visible.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Hide Turtle Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     turtle.hide()  // Turtle cursor invisible
+    ///           .forward(100.0)
+    ///           .right(90.0)
+    ///           .forward(100.0);
+    /// }
+    /// ```
+    fn hide(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::HideTurtle);
+        self
+    }
+
+    /// Shows the turtle cursor.
+    ///
+    /// Makes the turtle cursor visible if it was previously hidden.
+    /// This is the default state.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Show Turtle Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     turtle.hide()
+    ///           .forward(100.0)
+    ///           .show()  // Turtle becomes visible again
+    ///           .forward(100.0);
+    /// }
+    /// ```
+    fn show(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::ShowTurtle);
+        self
+    }
+
+    /// Sets the turtle's shape using a `TurtleShape` object.
+    ///
+    /// For most use cases, prefer using `shape()` which accepts a `ShapeType` enum.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Shape Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     let custom_shape = ShapeType::Arrow.to_shape();
+    ///     turtle.set_shape(custom_shape);
+    /// }
+    /// ```
+    fn set_shape(&mut self, shape: TurtleShape) -> &mut Self {
+        self.get_commands_mut()
+            .push(TurtleCommand::SetShape(shape));
+        self
+    }
+
+    /// Sets the turtle's visual appearance.
+    ///
+    /// Available shapes: `Arrow`, `Triangle`, `Square`, `Circle`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Shape Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Use different shapes
+    ///     turtle.shape(ShapeType::Arrow)
+    ///           .forward(50.0)
+    ///           .shape(ShapeType::Circle)
+    ///           .forward(50.0);
+    /// }
+    /// ```
+    fn shape(&mut self, shape_type: ShapeType) -> &mut Self {
+        self.set_shape(shape_type.to_shape())
+    }
+
+    /// Sets the animation speed for turtle movements.
+    ///
+    /// Speed controls how fast the turtle moves during animations:
+    /// - Values `>= 1000`: Instant mode - commands execute immediately without animation.
+    ///   The bigger the number, the more segments are drawn per frame.
+    /// - Values `< 1000`: Animated mode - turtle moves at specified pixels per second
+    ///
+    /// You can dynamically switch between instant and animated modes during execution.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Speed Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Slow animation at 50 pixels/second
+    ///     turtle.set_speed(50.0)
+    ///           .forward(100.0);
+    ///
+    ///     // Switch to instant mode
+    ///     turtle.set_speed(1000.0)
+    ///           .forward(100.0);  // Executes immediately
+    /// }
+    /// ```
+    fn set_speed(&mut self, speed: impl Into<AnimationSpeed>) -> &mut Self {
+        self.get_commands_mut()
+            .push(TurtleCommand::SetSpeed(speed.into()));
+        self
+    }
+
+    /// Resets the turtle to its default state.
+    ///
+    /// This clears all drawings, clears active fill state, and resets turtle parameters:
+    /// - Position: (0, 0)
+    /// - Heading: 0° (facing right)
+    /// - Pen: down
+    /// - Pen width: 2.0
+    /// - Pen color: black
+    /// - Fill color: none
+    /// - Visibility: visible
+    /// - Shape: arrow
+    /// - Speed: default
+    ///
+    /// Note: queued commands are not removed; `reset()` itself is a command in the queue.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Reset Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Draw something
+    ///     turtle.forward(100.0);
+    ///
+    ///     // Reset everything back to default
+    ///     turtle.reset();
+    ///
+    ///     // Start fresh
+    ///     turtle.forward(50.0);
+    /// }
+    /// ```
+    fn reset(&mut self) -> &mut Self {
+        self.get_commands_mut().push(TurtleCommand::Reset);
+        self
+    }
+}
+
+/// Trait for drawing text with the turtle
+pub trait Text: WithCommands {
+    /// Writes text at the turtle's current position, oriented along its heading direction.
+    ///
+    /// The text is rendered with its baseline positioned slightly above the turtle's current position,
+    /// and rotated to align with the turtle's current heading.
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - The text to render (can be `&str` or `String`)
+    /// * `font_size` - The font size, can be any type that converts to `FontSize` (e.g., `f32`, `u16`, `i32`)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use turtle_lib::*;
+    /// #
+    /// #[turtle_main("Text Example")]
+    /// fn draw(turtle: &mut TurtlePlan) {
+    ///     // Write text at current position (heading 0° = horizontal)
+    ///     turtle.write_text("Hello", 20.0);
+    ///
+    ///     // Move forward and write at an angle
+    ///     turtle.forward(100.0)
+    ///           .right(45.0)
+    ///           .write_text("World", 24);
+    ///
+    ///     // Chain with other commands
+    ///     turtle.forward(50.0)
+    ///           .write_text("End", 16u16);
+    /// }
+    /// ```
+    fn write_text<T>(&mut self, text: impl Into<String>, font_size: T) -> &mut Self
+    where
+        T: Into<FontSize>,
+    {
+        self.get_commands_mut().push(TurtleCommand::WriteText {
+            text: text.into(),
+            font_size: font_size.into(),
+        });
+        self
+    }
+}
+
 /// Builder for creating turtle command sequences
 #[derive(Clone, Default, Debug)]
 pub struct TurtlePlan {
@@ -262,462 +731,6 @@ impl TurtlePlan {
         }
     }
 
-    /// Sets the animation speed for turtle movements.
-    ///
-    /// Speed controls how fast the turtle moves during animations:
-    /// - Values `>= 1000`: Instant mode - commands execute immediately without animation.
-    ///   The bigger the number, the more segments are drawn per frame.
-    /// - Values `< 1000`: Animated mode - turtle moves at specified pixels per second
-    ///
-    /// You can dynamically switch between instant and animated modes during execution.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Speed Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Slow animation at 50 pixels/second
-    ///     turtle.set_speed(50.0)
-    ///           .forward(100.0);
-    ///
-    ///     // Switch to instant mode
-    ///     turtle.set_speed(1000.0)
-    ///           .forward(100.0);  // Executes immediately
-    /// }
-    /// ```
-    pub fn set_speed(&mut self, speed: impl Into<AnimationSpeed>) -> &mut Self {
-        self.queue.push(TurtleCommand::SetSpeed(speed.into()));
-        self
-    }
-
-    /// Sets the pen color for drawing lines.
-    ///
-    /// The pen color affects all subsequent drawing operations (forward, backward, circles)
-    /// until changed again. Does not affect fill color.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Pen Color Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Draw with predefined colors
-    ///     turtle.set_pen_color(RED)
-    ///           .forward(100.0)
-    ///           .set_pen_color(BLUE)
-    ///           .right(90.0)
-    ///           .forward(100.0);
-    /// }
-    /// ```
-    pub fn set_pen_color(&mut self, color: Color) -> &mut Self {
-        self.queue.push(TurtleCommand::SetColor(color));
-        self
-    }
-
-    /// Sets the pen width (thickness) for drawing lines.
-    ///
-    /// The width is measured in pixels. Default is typically 2.0.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Pen Width Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Thin line
-    ///     turtle.set_pen_width(1.0)
-    ///           .forward(100.0);
-    ///
-    ///     // Thick line
-    ///     turtle.set_pen_width(10.0)
-    ///           .forward(100.0);
-    /// }
-    /// ```
-    pub fn set_pen_width(&mut self, width: Precision) -> &mut Self {
-        self.queue.push(TurtleCommand::SetPenWidth(width));
-        self
-    }
-
-    /// Sets the turtle's absolute heading direction in degrees.
-    ///
-    /// - `0°` points to the right (east)
-    /// - `90°` points up (north)
-    /// - `180°` points left (west)
-    /// - `270°` points down (south)
-    ///
-    /// Internally, turtle heading is stored in radians in a Y-down render space.
-    /// This method converts from user-facing degrees (Y-up mental model) to that
-    /// internal representation.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Heading Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Point upward
-    ///     turtle.set_heading(90.0)
-    ///           .forward(100.0);
-    ///
-    ///     // Point left
-    ///     turtle.set_heading(180.0)
-    ///           .forward(100.0);
-    /// }
-    /// ```
-    pub fn set_heading<T: Into<Degrees>>(&mut self, heading: T) -> &mut Self {
-        self.queue.push(TurtleCommand::SetHeading(heading.into()));
-        self
-    }
-
-    /// Lifts the pen up so the turtle can move without drawing.
-    ///
-    /// When filling shapes, `pen_up()` also closes the current contour,
-    /// allowing you to create multi-contour fills (e.g., shapes with holes).
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Pen Up/Down Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Move without drawing
-    ///     turtle.pen_up()
-    ///           .forward(100.0)  // No line drawn
-    ///           .pen_down()
-    ///           .forward(100.0); // Line drawn
-    ///
-    ///     // Create a donut shape (outer circle with inner hole)
-    ///     turtle.set_fill_color(BLUE)
-    ///           .begin_fill()
-    ///           .circle_left(100.0, 360.0, 72)  // Outer circle
-    ///           .pen_up()  // Close first contour
-    ///           .go_to(vec2(0.0, -30.0))
-    ///           .pen_down()  // Start second contour
-    ///           .circle_left(30.0, 360.0, 36)   // Inner circle (becomes hole)
-    ///           .end_fill();
-    /// }
-    /// ```
-    pub fn pen_up(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::PenUp);
-        self
-    }
-
-    /// Lowers the pen so the turtle draws when moving.
-    ///
-    /// This is the default state. When filling shapes, `pen_down()` starts
-    /// a new contour after `pen_up()` was called.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Pen Down Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     turtle.pen_up()
-    ///           .forward(50.0)    // Move without drawing
-    ///           .pen_down()       // Start drawing
-    ///           .forward(100.0);  // Line appears
-    /// }
-    /// ```
-    pub fn pen_down(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::PenDown);
-        self
-    }
-
-    /// Hides the turtle cursor from view.
-    ///
-    /// The turtle will still execute commands and draw, but the cursor
-    /// (typically an arrow or triangle) won't be visible.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Hide Turtle Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     turtle.hide()  // Turtle cursor invisible
-    ///           .forward(100.0)
-    ///           .right(90.0)
-    ///           .forward(100.0);
-    /// }
-    /// ```
-    pub fn hide(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::HideTurtle);
-        self
-    }
-
-    /// Shows the turtle cursor.
-    ///
-    /// Makes the turtle cursor visible if it was previously hidden.
-    /// This is the default state.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Show Turtle Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     turtle.hide()
-    ///           .forward(100.0)
-    ///           .show()  // Turtle becomes visible again
-    ///           .forward(100.0);
-    /// }
-    /// ```
-    pub fn show(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::ShowTurtle);
-        self
-    }
-
-    /// Sets the turtle's shape using a `TurtleShape` object.
-    ///
-    /// For most use cases, prefer using `shape()` which accepts a `ShapeType` enum.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Shape Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    /// let custom_shape = ShapeType::Arrow.to_shape();
-    /// turtle.set_shape(custom_shape);
-    /// }
-    /// ```
-    pub fn set_shape(&mut self, shape: TurtleShape) -> &mut Self {
-        self.queue.push(TurtleCommand::SetShape(shape));
-        self
-    }
-
-    /// Sets the turtle's visual appearance.
-    ///
-    /// Available shapes: `Arrow`, `Triangle`, `Square`, `Circle`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Shape Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Use different shapes
-    ///     turtle.shape(ShapeType::Arrow)
-    ///           .forward(50.0)
-    ///           .shape(ShapeType::Circle)
-    ///           .forward(50.0);
-    /// }
-    /// ```
-    pub fn shape(&mut self, shape_type: ShapeType) -> &mut Self {
-        self.set_shape(shape_type.to_shape())
-    }
-
-    /// Starts recording a shape to be filled.
-    ///
-    /// All turtle movements between `begin_fill()` and `end_fill()` define
-    /// the shape's outline. The shape is filled using the fill color when
-    /// `end_fill()` is called.
-    ///
-    /// Multiple contours can be created using `pen_up()` and `pen_down()`.
-    /// The `EvenOdd` fill rule automatically creates holes for inner contours.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Fill Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Fill a square
-    ///     turtle.set_fill_color(BLUE)
-    ///           .begin_fill();
-    ///     for _ in 0..4 {
-    ///         turtle.forward(100.0).right(90.0);
-    ///     }
-    ///     turtle.end_fill();
-    ///
-    ///     // Fill a circle
-    ///     turtle.pen_up().go_to(vec2(150.0, 0.0)).pen_down();
-    ///     turtle.set_fill_color(RED)
-    ///           .begin_fill()
-    ///           .circle_left(50.0, 360.0, 36)
-    ///           .end_fill();
-    /// }
-    /// ```
-    pub fn begin_fill(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::BeginFill);
-        self
-    }
-
-    /// Completes the fill operation started with `begin_fill()`.
-    ///
-    /// Closes the current shape and fills it with the fill color.
-    /// All contours recorded since `begin_fill()` are filled together.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("End Fill Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Triangle with fill
-    ///     turtle.set_fill_color(GREEN)
-    ///           .begin_fill();
-    ///     for _ in 0..3 {
-    ///         turtle.forward(100.0).right(120.0);
-    ///     }
-    ///     turtle.end_fill();
-    /// }
-    /// ```
-    pub fn end_fill(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::EndFill);
-        self
-    }
-
-    /// Sets the color used to fill shapes.
-    ///
-    /// This affects all shapes filled with `begin_fill()`/`end_fill()`.
-    /// Independent from the pen color used for outlines.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Fill Color Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Yellow fill with blue outline
-    ///     turtle.set_fill_color(YELLOW)
-    ///           .set_pen_color(BLUE)
-    ///           .begin_fill()
-    ///           .circle_left(50.0, 360.0, 36)
-    ///           .end_fill();
-    /// }
-    /// ```
-    pub fn set_fill_color(&mut self, color: impl Into<Color>) -> &mut Self {
-        self.queue
-            .push(TurtleCommand::SetFillColor(Some(color.into())));
-        self
-    }
-
-    /// Moves the turtle to an absolute position.
-    ///
-    /// The turtle moves in a straight line to the specified coordinates.
-    /// If the pen is down, a line is drawn. The turtle's heading is not changed.
-    ///
-    /// Coordinates use turtle-style Cartesian space:
-    /// - `(0, 0)` is at the center
-    /// - Positive x goes right
-    /// - Positive y goes up
-    ///
-    /// Internally, Macroquad uses Y-down screen coordinates; this command
-    /// performs the Y-axis conversion when executed.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Goto Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Draw a triangle by connecting points
-    ///     turtle.go_to(vec2(0.0, 0.0));
-    ///     turtle.go_to(vec2(100.0, 0.0));
-    ///     turtle.go_to(vec2(50.0, 86.6));
-    ///     turtle.go_to(vec2(0.0, 0.0));
-    /// }
-    /// ```
-    pub fn go_to(&mut self, coord: impl Into<Coordinate>) -> &mut Self {
-        self.queue.push(TurtleCommand::Goto(coord.into()));
-        self
-    }
-
-    /// Writes text at the turtle's current position, oriented along its heading direction.
-    ///
-    /// The text is rendered with its baseline positioned slightly above the turtle's current position,
-    /// and rotated to align with the turtle's current heading.
-    ///
-    /// # Arguments
-    ///
-    /// * `text` - The text to render (can be `&str` or `String`)
-    /// * `font_size` - The font size, can be any type that converts to `FontSize` (e.g., `f32`, `u16`, `i32`)
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Text Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Write text at current position (heading 0° = horizontal)
-    ///     turtle.write_text("Hello", 20.0);
-    ///
-    ///     // Move forward and write at an angle
-    ///     turtle.forward(100.0)
-    ///           .right(45.0)
-    ///           .write_text("World", 24);
-    ///
-    ///     // Chain with other commands
-    ///     turtle.forward(50.0)
-    ///           .write_text("End", 16u16);
-    /// }
-    /// ```
-    pub fn write_text<T>(&mut self, text: impl Into<String>, font_size: T) -> &mut Self
-    where
-        T: Into<FontSize>,
-    {
-        self.queue.push(TurtleCommand::WriteText {
-            text: text.into(),
-            font_size: font_size.into(),
-        });
-        self
-    }
-
-    /// Resets the turtle to its default state.
-    ///
-    /// This clears all drawings, clears active fill state, and resets turtle parameters:
-    /// - Position: (0, 0)
-    /// - Heading: 0° (facing right)
-    /// - Pen: down
-    /// - Pen width: 2.0
-    /// - Pen color: black
-    /// - Fill color: none
-    /// - Visibility: visible
-    /// - Shape: arrow
-    /// - Speed: default
-    ///
-    /// Note: queued commands are not removed; `reset()` itself is a command in the queue.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use turtle_lib::*;
-    /// #
-    /// #[turtle_main("Reset Example")]
-    /// fn draw(turtle: &mut TurtlePlan) {
-    ///     // Draw something
-    ///     turtle.forward(100.0);
-    ///
-    ///     // Reset everything back to default
-    ///     turtle.reset();
-    ///
-    ///     // Start fresh
-    ///     turtle.forward(50.0);
-    /// }
-    /// ```
-    pub fn reset(&mut self) -> &mut Self {
-        self.queue.push(TurtleCommand::Reset);
-        self
-    }
-
     /// Consumes the `TurtlePlan` and returns the command queue.
     ///
     /// Use this to finalize the turtle commands and pass them to `TurtleApp`.
@@ -751,6 +764,9 @@ impl WithCommands for TurtlePlan {
     }
 }
 
-impl DirectionalMovement for TurtlePlan {}
-impl Turnable for TurtlePlan {}
-impl CurvedMovement for TurtlePlan {}
+impl Movement for TurtlePlan {}
+impl Rotation for TurtlePlan {}
+impl Pen for TurtlePlan {}
+impl Fill for TurtlePlan {}
+impl Cursor for TurtlePlan {}
+impl Text for TurtlePlan {}

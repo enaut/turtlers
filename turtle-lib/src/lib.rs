@@ -59,8 +59,9 @@ pub(crate) mod state;
 pub(crate) mod tessellation;
 pub(crate) mod tweening;
 
-// Re-export commonly used types
-pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
+pub use builders::{
+    Cursor, Fill, Movement, Pen, Rotation, Text, TurtlePlan, WithCommands,
+};
 pub use commands::{CommandQueue, TurtleCommand};
 pub use commands_channel::TurtleCommandSender;
 pub use general::{AnimationSpeed, Color, Coordinate, Degrees, Length, Precision, Radians};

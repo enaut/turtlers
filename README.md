@@ -341,7 +341,7 @@ turtle-lib/src/
 ├── lib.rs          - Public API and TurtleApp
 ├── state.rs        - TurtleState and TurtleWorld
 ├── commands.rs     - TurtleCommand enum (consolidated commands)
-├── builders.rs     - Builder traits (DirectionalMovement, Turnable, etc.)
+├── builders.rs     - Builder traits (Movement, Rotation, Pen, Fill, Cursor, Text)
 ├── execution.rs    - Command execution with fill support
 ├── tweening.rs     - Animation/tweening controller with dynamic speed
 ├── drawing.rs      - Rendering with Lyon tessellation
