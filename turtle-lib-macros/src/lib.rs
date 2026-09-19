@@ -102,6 +102,40 @@ use syn::ItemFn;
 ///     });
 /// }
 /// ```
+fn validate_parameter_type(ty: &syn::Type) -> Result<(), syn::Error> {
+    match ty {
+        syn::Type::Reference(type_ref) => {
+            if type_ref.mutability.is_none() {
+                return Err(syn::Error::new_spanned(
+                    type_ref,
+                    "#[turtle_main] parameter must be a mutable reference: `&mut TurtlePlan`",
+                ));
+            }
+
+            if let syn::Type::Path(type_path) = &*type_ref.elem {
+                let is_turtle_plan = type_path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|seg| seg.ident == "TurtlePlan");
+
+                if is_turtle_plan {
+                    return Ok(());
+                }
+            }
+
+            Err(syn::Error::new_spanned(
+                &type_ref.elem,
+                "#[turtle_main] expected reference to `TurtlePlan`, e.g. `&mut TurtlePlan`",
+            ))
+        }
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            "#[turtle_main] parameter must be of type `&mut TurtlePlan`",
+        )),
+    }
+}
+
 fn validate_input(input_fn: &ItemFn) -> Result<(), syn::Error> {
     if input_fn.sig.asyncness.is_some() {
         return Err(syn::Error::new_spanned(
@@ -137,6 +171,8 @@ fn validate_input(input_fn: &ItemFn) -> Result<(), syn::Error> {
                         ));
                     }
                 }
+
+                validate_parameter_type(&pat_type.ty)?;
             }
         }
     }
@@ -354,6 +390,50 @@ mod tests {
         };
         let err = validate_input(&input).unwrap_err();
         assert!(err.to_string().contains("cannot have a return type"));
+    }
+
+    #[test]
+    fn test_valid_qualified_type() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: &mut turtle_lib::TurtlePlan) {}
+        };
+        assert!(validate_input(&input).is_ok());
+    }
+
+    #[test]
+    fn test_rejects_wrong_type() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(value: i32) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("parameter must be of type `&mut TurtlePlan`"));
+    }
+
+    #[test]
+    fn test_rejects_immutable_reference() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: &TurtlePlan) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("parameter must be a mutable reference: `&mut TurtlePlan`"));
+    }
+
+    #[test]
+    fn test_rejects_owned_type() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: TurtlePlan) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("parameter must be of type `&mut TurtlePlan`"));
+    }
+
+    #[test]
+    fn test_rejects_wrong_reference_type() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(t: &mut i32) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("expected reference to `TurtlePlan`"));
     }
 
     #[test]
