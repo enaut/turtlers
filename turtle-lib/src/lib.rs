@@ -59,8 +59,9 @@ pub(crate) mod state;
 pub(crate) mod tessellation;
 pub(crate) mod tweening;
 
-// Re-export commonly used types
-pub use builders::{CurvedMovement, DirectionalMovement, Turnable, TurtlePlan, WithCommands};
+pub use builders::{
+    Cursor, Fill, Movement, Pen, Rotation, Text, TurtlePlan, WithCommands,
+};
 pub use commands::{CommandQueue, TurtleCommand};
 pub use commands_channel::TurtleCommandSender;
 pub use general::{AnimationSpeed, Color, Coordinate, Degrees, Length, Precision, Radians};
@@ -72,6 +73,9 @@ pub(crate) mod export_svg;
 
 // Re-export the turtle_main macro
 pub use turtle_lib_macros::turtle_main;
+
+// Re-export the macroquad crate so generated macro code can access it directly
+pub use macroquad;
 
 // Re-export common macroquad types and colors for convenience
 pub use macroquad::prelude::{
@@ -106,6 +110,7 @@ impl TurtleApp {
         filename: &str,
         format: export::DrawingFormat,
     ) -> Result<(), export::ExportError> {
+        let _ = filename;
         match format {
             #[cfg(feature = "svg")]
             export::DrawingFormat::Svg => {
@@ -249,6 +254,11 @@ impl TurtleApp {
 
     /// Execute a plan immediately on a specific turtle (no animation)
     pub fn execute_immediate(&mut self, turtle_id: usize, plan: TurtlePlan) {
+        // Ensure turtle exists
+        while self.world.turtles.len() <= turtle_id {
+            self.world.add_turtle();
+        }
+
         for ref cmd in plan.build() {
             execution::execute_command_with_id(cmd, turtle_id, &mut self.world);
         }
@@ -281,12 +291,19 @@ impl TurtleApp {
         }
     }
 
-    /// Update animation state (call every frame)
+    /// Update animation state and process window mouse events (call every frame in GUI loop)
     pub fn update(&mut self) {
         // Handle mouse panning and zoom
         self.handle_mouse_panning();
         self.handle_mouse_zoom();
 
+        self.step_animations();
+    }
+
+    /// Drive animation updates for all turtles without querying window or mouse events.
+    ///
+    /// Suitable for headless execution (such as CLI SVG export) where no graphics window exists.
+    pub fn step_animations(&mut self) {
         // Update all turtles' tween controllers
         for turtle in &mut self.world.turtles {
             // Drive this turtle's animation controller for one frame.
@@ -371,12 +388,6 @@ impl TurtleApp {
             .all(|turtle| turtle.tween_controller.is_complete())
     }
 
-    /// Check if all animations are complete (alias for is_complete)
-    #[must_use]
-    pub fn all_animations_complete(&self) -> bool {
-        self.is_complete()
-    }
-
     /// Set the animation speed for all turtles
     ///
     /// # Arguments
@@ -388,16 +399,7 @@ impl TurtleApp {
         }
     }
 
-    /// Get reference to the world state
-    #[must_use]
-    pub(crate) fn world(&self) -> &TurtleWorld {
-        &self.world
-    }
 
-    /// Get mutable reference to the world state
-    pub(crate) fn world_mut(&mut self) -> &mut TurtleWorld {
-        &mut self.world
-    }
 }
 
 impl Default for TurtleApp {

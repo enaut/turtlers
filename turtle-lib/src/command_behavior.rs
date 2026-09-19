@@ -31,8 +31,8 @@ impl TurtleCommand {
     pub(crate) fn apply_to_params(&self, params: &mut TurtleParams) {
         match self {
             TurtleCommand::Move(dist) => {
-                let dx = dist * params.heading.cos();
-                let dy = dist * params.heading.sin();
+                let dx = dist.value() * params.heading.cos();
+                let dy = dist.value() * params.heading.sin();
                 params.position = vec2(params.position.x + dx, params.position.y + dy);
             }
             TurtleCommand::Turn(angle) => {
@@ -47,7 +47,7 @@ impl TurtleCommand {
                 let geom = CircleGeometry::new(
                     params.position,
                     Radians::new(params.heading),
-                    *radius,
+                    radius.value(),
                     *direction,
                 );
                 let angle_rad = angle.as_radians().value();
@@ -62,7 +62,7 @@ impl TurtleCommand {
                 params.position = vec2(coord.x, -coord.y);
             }
             TurtleCommand::SetHeading(heading) => {
-                params.heading = normalize_angle(heading.value());
+                params.heading = normalize_angle(-heading.as_radians().value());
             }
             TurtleCommand::SetColor(color) => {
                 params.color = *color;
@@ -119,15 +119,16 @@ impl TurtleCommand {
         }
 
         let base: f32 = match self {
-            TurtleCommand::Move(dist) => dist.abs() / spd,
+            TurtleCommand::Move(dist) => dist.value().abs() / spd,
             TurtleCommand::Turn(angle) => angle.value().abs() / (spd * 1.8),
             TurtleCommand::Circle { radius, angle, .. } => {
-                let arc_length = radius * angle.as_radians().value().abs();
+                let arc_length = radius.value() * angle.as_radians().value().abs();
                 arc_length / spd
             }
             TurtleCommand::Goto(target) => {
-                let dx = target.x - params.position.x;
-                let dy = target.y - params.position.y;
+                let screen_target = vec2(target.x, -target.y);
+                let dx = screen_target.x - params.position.x;
+                let dy = screen_target.y - params.position.y;
                 (dx * dx + dy * dy).sqrt() / spd
             }
             _ => 0.0,
@@ -148,3 +149,77 @@ impl TurtleCommand {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::general::{AnimationSpeed, Color, Coordinate, Degrees};
+    use crate::shapes::TurtleShape;
+
+    fn make_test_params() -> TurtleParams {
+        TurtleParams {
+            position: vec2(0.0, 0.0),
+            heading: 0.0,
+            pen_down: true,
+            pen_width: 1.0,
+            color: Color::new(0.0, 0.0, 0.0, 1.0),
+            fill_color: None,
+            visible: true,
+            shape: TurtleShape::turtle(),
+            speed: AnimationSpeed::Animated(100.0),
+        }
+    }
+
+    #[test]
+    fn test_goto_duration_cartesian_inversion() {
+        let mut params = make_test_params();
+        // Set screen position to (0, 100), which corresponds to Cartesian (0, -100)
+        params.position = vec2(0.0, 100.0);
+
+        // Move to Cartesian (0, 100), which in screen space is (0, -100)
+        // Distance should be 200 pixels!
+        let cmd = TurtleCommand::Goto(Coordinate::new(0.0, 100.0));
+        let duration = cmd.animation_duration(&params, AnimationSpeed::Animated(100.0));
+
+        // At 100 px/sec across 200 pixels, duration should be 2.0 seconds
+        assert!(
+            (duration - 2.0).abs() < 0.01,
+            "Expected duration ~2.0s for 200px move, got {duration}"
+        );
+    }
+
+    #[test]
+    fn test_set_heading_degrees_and_instant_duration() {
+        let mut params = make_test_params();
+
+        // 90° = North (in screen coordinates: -pi/2)
+        let cmd_north = TurtleCommand::SetHeading(Degrees::new(90.0));
+        cmd_north.apply_to_params(&mut params);
+        let expected_north = -std::f32::consts::FRAC_PI_2;
+        assert!(
+            (params.heading - expected_north).abs() < 0.001,
+            "Heading 90° should be North (-π/2), got {}",
+            params.heading
+        );
+
+        // SetHeading should be instant (0.01 minimum duration)
+        let duration = cmd_north.animation_duration(&params, AnimationSpeed::Animated(100.0));
+        assert!((duration - 0.01).abs() < 0.001);
+
+        // 0° = East (0 radians)
+        let cmd_east = TurtleCommand::SetHeading(Degrees::new(0.0));
+        cmd_east.apply_to_params(&mut params);
+        assert!((params.heading - 0.0).abs() < 0.001);
+
+        // 270° = South (+pi/2 radians in screen coords)
+        let cmd_south = TurtleCommand::SetHeading(Degrees::new(270.0));
+        cmd_south.apply_to_params(&mut params);
+        let expected_south = std::f32::consts::FRAC_PI_2;
+        assert!(
+            (params.heading - expected_south).abs() < 0.001,
+            "Heading 270° should be South (π/2), got {}",
+            params.heading
+        );
+    }
+}
+

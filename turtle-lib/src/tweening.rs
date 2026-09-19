@@ -5,6 +5,7 @@ use crate::commands::{CommandQueue, TurtleCommand};
 use crate::general::{AnimationSpeed, Radians};
 use crate::state::{DrawCommand, FillState, TurtleParams};
 use macroquad::prelude::*;
+use std::collections::VecDeque;
 use tween::{CubicInOut, TweenValue, Tweener};
 
 // Newtype wrapper for Vec2 to implement TweenValue
@@ -46,25 +47,21 @@ impl From<TweenVec2> for Vec2 {
 /// Controls tweening of turtle commands
 #[derive(Clone, Debug, Default)]
 pub(crate) struct TweenController {
-    queue: CommandQueue,
-    /// Cursor into `queue` — tracks which command executes next.
-    /// Lives here, not in `CommandQueue`, so that cloning or appending to the
-    /// queue never silently resets or mid-stream-shifts the execution position.
-    cursor: usize,
+    queue: VecDeque<TurtleCommand>,
     current_tween: Option<CommandTween>,
     speed: AnimationSpeed,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct CommandTween {
-    pub(crate) turtle_id: usize,
     pub(crate) command: TurtleCommand,
-    pub(crate) start_time: f64,
-    pub(crate) duration: f64,
+    pub(crate) progress: f32,
     pub(crate) start_params: TurtleParams,
     pub(crate) target_params: TurtleParams,
     pub(crate) current_position: Vec2,
     pub(crate) current_heading: f32,
+    start_time: f64,
+    duration: f64,
     position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
     heading_tweener: Tweener<f32, f64, CubicInOut>,
     pen_width_tweener: Tweener<f32, f64, CubicInOut>,
@@ -74,8 +71,7 @@ impl TweenController {
     #[must_use]
     pub fn new(queue: CommandQueue, speed: AnimationSpeed) -> Self {
         Self {
-            queue,
-            cursor: 0,
+            queue: queue.into_iter().collect(),
             current_tween: None,
             speed,
         }
@@ -87,8 +83,8 @@ impl TweenController {
 
     /// Append commands to the queue.
     ///
-    /// The cursor is **not** reset — commands already consumed remain consumed,
-    /// and the new commands are picked up naturally as the cursor advances.
+    /// Consumed commands are removed as they execute, and new commands
+    /// are queued at the back.
     pub fn append_commands(&mut self, new_queue: CommandQueue) {
         self.queue.extend(new_queue);
     }
@@ -117,9 +113,8 @@ impl TweenController {
                 Vec::new();
             let mut draw_call_count = 0;
 
-            // Advance cursor through the queue for each command consumed
-            while let Some(command) = self.queue.get(self.cursor).cloned() {
-                self.cursor += 1;
+            // Consume commands from the front of the queue
+            while let Some(command) = self.queue.pop_front() {
                 // Handle SetSpeed command to potentially switch modes
                 if let TurtleCommand::SetSpeed(new_speed) = &command {
                     params.speed = *new_speed;
@@ -168,11 +163,12 @@ impl TweenController {
 
         // Process current tween
         if let Some(ref mut tween) = self.current_tween {
-            let elapsed = get_time() - tween.start_time;
+            let elapsed = current_time() - tween.start_time;
 
             // Use tweeners to calculate current values
             // For circles, calculate position along the arc instead of straight line
-            let progress = tween.heading_tweener.move_to(elapsed);
+            let progress = tween.heading_tweener.move_to(elapsed).clamp(0.0, 1.0);
+            tween.progress = progress;
 
             let current_position = match &tween.command {
                 TurtleCommand::Circle {
@@ -185,7 +181,7 @@ impl TweenController {
                     calculate_circle_position(
                         tween.start_params.position,
                         Radians::new(tween.start_params.heading),
-                        *radius,
+                        radius.value(),
                         angle_traveled,
                         *direction,
                     )
@@ -273,9 +269,7 @@ impl TweenController {
         }
 
         // Start next tween
-        if let Some(command) = self.queue.get(self.cursor).cloned() {
-            self.cursor += 1;
-
+        if let Some(command) = self.queue.pop_front() {
             // Handle commands that should execute immediately (no animation)
             match &command {
                 TurtleCommand::SetSpeed(new_speed) => {
@@ -323,9 +317,9 @@ impl TweenController {
             );
 
             self.current_tween = Some(CommandTween {
-                turtle_id,
                 command,
-                start_time: get_time(),
+                progress: 0.0,
+                start_time: current_time(),
                 duration,
                 start_params: params.clone(),
                 target_params: target_state.clone(),
@@ -342,7 +336,7 @@ impl TweenController {
 
     #[must_use]
     pub fn is_complete(&self) -> bool {
-        self.current_tween.is_none() && self.cursor >= self.queue.len()
+        self.current_tween.is_none() && self.queue.is_empty()
     }
 
     /// Get the current active tween if one is in progress
@@ -399,4 +393,189 @@ pub(crate) fn normalize_angle(angle: f32) -> f32 {
     }
 
     normalized
+}
+
+#[inline]
+fn current_time() -> f64 {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::sync::OnceLock;
+        use std::time::Instant;
+        static START: OnceLock<Instant> = OnceLock::new();
+        START.get_or_init(Instant::now).elapsed().as_secs_f64()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        macroquad::time::get_time()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::TurtleCommand;
+    use crate::general::{Degrees, Length};
+    use crate::state::TurtleParams;
+
+    fn make_test_params() -> TurtleParams {
+        TurtleParams {
+            position: vec2(0.0, 0.0),
+            heading: 0.0,
+            pen_down: true,
+            pen_width: 1.0,
+            color: Color::new(0.0, 0.0, 0.0, 1.0),
+            fill_color: None,
+            visible: true,
+            shape: crate::shapes::TurtleShape::turtle(),
+            speed: AnimationSpeed::Instant(100),
+        }
+    }
+
+    #[test]
+    fn test_instant_mode_drains_queue() {
+        let mut queue = CommandQueue::new();
+        queue.push(TurtleCommand::Move(Length::new(100.0)));
+        queue.push(TurtleCommand::Turn(Degrees::new(90.0)));
+        queue.push(TurtleCommand::PenUp);
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
+
+        let mut controller = TweenController::new(queue, AnimationSpeed::Instant(100));
+        assert_eq!(controller.queue.len(), 4);
+        assert!(!controller.is_complete());
+
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        let completed = controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+
+        assert_eq!(controller.queue.len(), 0, "Queue must be empty after instant update");
+        assert!(controller.is_complete(), "Controller must be complete when queue is drained");
+        assert!(!completed.is_empty());
+    }
+
+    #[test]
+    fn test_streaming_append_commands_does_not_accumulate() {
+        let mut controller = TweenController::new(CommandQueue::new(), AnimationSpeed::Instant(100));
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        // Simulate streaming commands across 50 frames (like clock_threaded)
+        for _ in 0..50 {
+            let mut batch = CommandQueue::new();
+            batch.push(TurtleCommand::Reset);
+            batch.push(TurtleCommand::PenDown);
+            batch.push(TurtleCommand::Move(Length::new(10.0)));
+            batch.push(TurtleCommand::Turn(Degrees::new(30.0)));
+
+            controller.append_commands(batch);
+            assert_eq!(controller.queue.len(), 4);
+
+            controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+
+            // Verify queue is pruned back to 0 — no memory leak / accumulation
+            assert_eq!(controller.queue.len(), 0);
+            assert!(controller.is_complete());
+        }
+    }
+
+    #[test]
+    fn test_instant_mode_respects_batch_limit_and_retains_pending() {
+        let mut queue = CommandQueue::new();
+        // 5 drawing commands
+        queue.push(TurtleCommand::Move(Length::new(10.0)));
+        queue.push(TurtleCommand::Move(Length::new(20.0)));
+        queue.push(TurtleCommand::Move(Length::new(30.0)));
+        queue.push(TurtleCommand::Move(Length::new(40.0)));
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
+
+        // Limit to 2 draw calls per frame
+        let mut controller = TweenController::new(queue, AnimationSpeed::Instant(2));
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        // Frame 1: processes 2 drawing commands
+        let completed1 = controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        assert_eq!(completed1.len(), 2);
+        assert_eq!(controller.queue.len(), 3, "3 commands should remain in queue");
+        assert!(!controller.is_complete());
+
+        // Frame 2: processes next 2 drawing commands
+        let completed2 = controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        assert_eq!(completed2.len(), 2);
+        assert_eq!(controller.queue.len(), 1, "1 command should remain in queue");
+        assert!(!controller.is_complete());
+
+        // Frame 3: processes last drawing command
+        let completed3 = controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        assert_eq!(completed3.len(), 1);
+        assert_eq!(controller.queue.len(), 0, "Queue must be completely drained");
+        assert!(controller.is_complete());
+    }
+
+    #[test]
+    fn test_animated_mode_pops_to_current_tween() {
+        let mut queue = CommandQueue::new();
+        queue.push(TurtleCommand::Move(Length::new(100.0)));
+        queue.push(TurtleCommand::Move(Length::new(50.0)));
+
+        let mut controller = TweenController::new(
+            queue,
+            AnimationSpeed::Animated(100.0),
+        );
+        assert_eq!(controller.queue.len(), 2);
+        assert!(!controller.is_complete());
+
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        // Calling update should pop the first command into current_tween
+        controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+
+        assert_eq!(controller.queue.len(), 1, "First command must be popped into current_tween");
+        let active = controller.current_tween().expect("Must have active tween");
+        assert_eq!(active.progress, 0.0, "New tween must initialize progress to 0.0");
+        assert!(!controller.is_complete());
+    }
+
+    #[test]
+    fn test_animated_mode_progress_advances_and_clamps() {
+        let mut queue = CommandQueue::new();
+        // Circle command with speed 10.0 and radius 100 => duration ~62.8s
+        queue.push(TurtleCommand::Circle {
+            radius: Length::new(100.0),
+            angle: Degrees::new(360.0),
+            steps: 36,
+            direction: CircleDirection::Right,
+        });
+
+        let mut controller = TweenController::new(
+            queue,
+            AnimationSpeed::Animated(10.0),
+        );
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        // Frame 0: pops into current_tween with progress = 0.0
+        controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        let initial_progress = controller.current_tween().unwrap().progress;
+        assert_eq!(initial_progress, 0.0);
+
+        // Advance time by sleeping briefly
+        std::thread::sleep(std::time::Duration::from_millis(15));
+        controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        if let Some(tween) = controller.current_tween() {
+            assert!(tween.progress >= 0.0 && tween.progress <= 1.0);
+            assert!(tween.progress >= initial_progress);
+        }
+    }
 }

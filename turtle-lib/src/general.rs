@@ -20,8 +20,7 @@ pub type Precision = f32;
 /// - internal render-space state uses Macroquad-style Y-down coordinates
 pub type Coordinate = Vec2;
 
-/// Visibility flag for turtle
-pub type Visibility = bool;
+
 
 /// Execution speed setting
 /// - `Instant(draw_calls)`: Fast execution with limited draw calls per frame (speed - 1000, minimum 1)
@@ -80,11 +79,52 @@ impl From<f32> for AnimationSpeed {
     }
 }
 
+impl From<f64> for AnimationSpeed {
+    fn from(speed: f64) -> Self {
+        AnimationSpeed::from_value(speed as f32)
+    }
+}
+
 impl From<u32> for AnimationSpeed {
     fn from(speed: u32) -> Self {
         AnimationSpeed::from_u32(speed)
     }
 }
 
+impl From<i32> for AnimationSpeed {
+    fn from(speed: i32) -> Self {
+        AnimationSpeed::from_value(speed as f32)
+    }
+}
+
+impl From<usize> for AnimationSpeed {
+    fn from(speed: usize) -> Self {
+        AnimationSpeed::from_value(speed as f32)
+    }
+}
+
 /// Color type re-export from macroquad
 pub use macroquad::color::Color;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn animation_speed_conversions() {
+        assert_eq!(
+            AnimationSpeed::from(50.0_f64),
+            AnimationSpeed::Animated(50.0)
+        );
+        assert_eq!(
+            AnimationSpeed::from(100.0_f32),
+            AnimationSpeed::Animated(100.0)
+        );
+        assert_eq!(AnimationSpeed::from(1000_i32), AnimationSpeed::Instant(1));
+        assert_eq!(AnimationSpeed::from(1200_u32), AnimationSpeed::Instant(200));
+        assert_eq!(
+            AnimationSpeed::from(1500_usize),
+            AnimationSpeed::Instant(500)
+        );
+    }
+}

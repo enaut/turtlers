@@ -5,7 +5,7 @@
 
 use chrono::{Local, Timelike};
 use macroquad::prelude::{clear_background, is_key_pressed, next_frame, KeyCode, WHITE};
-use turtle_lib::{create_turtle_plan, vec2, DirectionalMovement, Turnable, TurtleApp};
+use turtle_lib::*;
 
 #[macroquad::main("Clock")]
 async fn main() {

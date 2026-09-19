@@ -1,4 +1,4 @@
-//! Beispiel: Exportiere ein SVG aus einer einfachen Zeichnung
+//! Example: Export an SVG from a simple drawing
 
 #[cfg(feature = "svg")]
 use turtle_lib::*;
@@ -52,12 +52,12 @@ async fn main() {
         app.update();
         app.render();
 
-        draw_text("Drücke E für SVG-Export", 20.0, 40.0, 32.0, BLACK);
+        draw_text("Press E for SVG export", 20.0, 40.0, 32.0, BLACK);
 
         if is_key_pressed(KeyCode::E) {
             match app.export_drawing("test.svg", export::DrawingFormat::Svg) {
-                Ok(_) => println!("SVG exportiert nach test.svg"),
-                Err(e) => println!("Fehler beim Export: {:?}", e),
+                Ok(_) => println!("SVG exported to test.svg"),
+                Err(e) => eprintln!("Export error: {:?}", e),
             }
         }
 
@@ -67,5 +67,5 @@ async fn main() {
 
 #[cfg(not(feature = "svg"))]
 fn main() {
-    println!("SVG-Export ist nicht aktiviert. Baue mit --features svg");
+    println!("SVG export is not enabled. Build with --features svg");
 }

@@ -1,7 +1,7 @@
 //! Cubic Bézier curve example
 //! <https://en.wikipedia.org/wiki/B%C3%A9zier_curve>
 
-use turtle_lib::{turtle_main, vec2};
+use turtle_lib::*;
 
 struct CubicBezier {
     point0: (f32, f32),

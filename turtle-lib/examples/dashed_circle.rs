@@ -1,7 +1,7 @@
 //! Dashed circle example ported from sunjay/turtle
 //! This draws a dashed circle but uses `circle_left` arcs for each segment instead of individual short lines.
 
-use turtle_lib::{turtle_main, vec2, CurvedMovement, Turnable};
+use turtle_lib::*;
 
 #[turtle_main("Dashed Circle")]
 fn draw(turtle: &mut TurtlePlan) {

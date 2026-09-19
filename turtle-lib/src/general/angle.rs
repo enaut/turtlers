@@ -65,6 +65,12 @@ impl From<f32> for Degrees {
     }
 }
 
+impl From<f64> for Degrees {
+    fn from(v: f64) -> Self {
+        Self(v as Precision)
+    }
+}
+
 impl From<i32> for Degrees {
     fn from(v: i32) -> Self {
         Self(v as Precision)
@@ -74,6 +80,12 @@ impl From<i32> for Degrees {
 impl From<i16> for Degrees {
     fn from(v: i16) -> Self {
         Self(Precision::from(v))
+    }
+}
+
+impl From<usize> for Degrees {
+    fn from(v: usize) -> Self {
+        Self(v as Precision)
     }
 }
 
@@ -158,5 +170,13 @@ mod tests {
         assert_eq!(d, Degrees::new(90.0));
         let d2: Degrees = 45_i16.into();
         assert_eq!(d2, Degrees::new(45.0));
+        let d3: Degrees = 180_usize.into();
+        assert_eq!(d3, Degrees::new(180.0));
+    }
+
+    #[test]
+    fn from_f64() {
+        let d: Degrees = 90.0_f64.into();
+        assert_eq!(d, Degrees::new(90.0));
     }
 }

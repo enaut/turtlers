@@ -93,7 +93,6 @@ pub(crate) fn execute_command_side_effects(
                 BLACK
             });
             *filling = Some(FillState {
-                start_position: params.position,
                 contours: Vec::new(),
                 current_contour: vec![params.position],
                 fill_color,
@@ -123,7 +122,7 @@ pub(crate) fn execute_command_side_effects(
                 }
 
                 if !fill_state.contours.is_empty() {
-                    if let Ok(mesh_data) = tessellation::tessellate_multi_contour(
+                    if let Ok(mesh) = tessellation::tessellate_multi_contour(
                         &fill_state.contours,
                         fill_state.fill_color,
                     ) {
@@ -132,7 +131,7 @@ pub(crate) fn execute_command_side_effects(
                             contours = fill_state.contours.len(),
                             "Successfully created fill mesh - persisting to commands"
                         );
-                        commands.push(DrawCommand::Mesh { data: mesh_data });
+                        commands.push(DrawCommand::Mesh(mesh));
                         #[cfg(feature = "svg")]
                         svg_log.push(crate::state::SvgRecord::Fill {
                             contours: fill_state.contours,
@@ -242,7 +241,7 @@ pub(crate) fn record_fill_vertices_after_movement(
             let geom = CircleGeometry::new(
                 start_state.position,
                 Radians::new(start_state.heading),
-                *radius,
+                radius.value(),
                 *direction,
             );
             if let Some(ref mut fill_state) = filling {
@@ -252,7 +251,7 @@ pub(crate) fn record_fill_vertices_after_movement(
                         turtle_id,
                         center_x = geom.center.x,
                         center_y = geom.center.y,
-                        radius,
+                        radius = radius.value(),
                         steps,
                         num_samples,
                         "Recording arc vertices"
@@ -268,8 +267,8 @@ pub(crate) fn record_fill_vertices_after_movement(
                             }
                         };
                         let vertex = Coordinate::new(
-                            geom.center.x + radius * current_angle.cos(),
-                            geom.center.y + radius * current_angle.sin(),
+                            geom.center.x + radius.value() * current_angle.cos(),
+                            geom.center.y + radius.value() * current_angle.sin(),
                         );
                         tracing::trace!(
                             turtle_id,
@@ -326,7 +325,7 @@ pub(crate) fn tessellate_command(
 
     match command {
         TurtleCommand::Move(_) | TurtleCommand::Goto(_) => {
-            let mesh_data = tessellation::tessellate_stroke(
+            let mesh = tessellation::tessellate_stroke(
                 &[start.position, end_position],
                 start.color,
                 start.pen_width,
@@ -334,7 +333,7 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh { data: mesh_data })
+            Some(DrawCommand::Mesh(mesh))
         }
 
         TurtleCommand::Circle {
@@ -347,12 +346,12 @@ pub(crate) fn tessellate_command(
             let geom = CircleGeometry::new(
                 start.position,
                 Radians::new(start.heading),
-                *radius,
+                radius.value(),
                 *direction,
             );
-            let mesh_data = tessellation::tessellate_arc(
+            let mesh = tessellation::tessellate_arc(
                 geom.center,
-                *radius,
+                radius.value(),
                 geom.start_angle_from_center.to_degrees(),
                 angle.value(),
                 start.color,
@@ -362,7 +361,7 @@ pub(crate) fn tessellate_command(
             )
             .ok()?;
 
-            Some(DrawCommand::Mesh { data: mesh_data })
+            Some(DrawCommand::Mesh(mesh))
         }
 
         // `produces_drawing()` guards entry — this arm is only reachable if
@@ -402,7 +401,7 @@ pub(crate) fn push_svg_for_draw(
             svg_log.push(SvgRecord::Arc {
                 start_position: start.position,
                 start_heading: start.heading,
-                radius: *radius,
+                radius: radius.value(),
                 angle: *angle,
                 direction: *direction,
                 color: start.color,
@@ -474,7 +473,7 @@ pub(crate) fn execute_command_with_id(
 mod tests {
     use super::*;
     use crate::commands::TurtleCommand;
-    use crate::general::Degrees;
+    use crate::general::{Degrees, Length};
     use crate::shapes::TurtleShape;
     use crate::tweening::TweenController;
 
@@ -484,7 +483,7 @@ mod tests {
         // the turtle ends up at (100, -50) from initial position (0, 0)
         use crate::state::TurtleParams;
 
-        let state = Turtle {
+        let mut state = Turtle {
             turtle_id: 0,
             params: TurtleParams {
                 position: vec2(0.0, 0.0),
@@ -503,28 +502,13 @@ mod tests {
             tween_controller: TweenController::default(),
         };
 
-        // We'll use a dummy world but won't actually call drawing commands
-        let world = TurtleWorld {
-            turtles: vec![state.clone()],
-            camera: macroquad::camera::Camera2D {
-                zoom: vec2(1.0, 1.0),
-                target: vec2(0.0, 0.0),
-                offset: vec2(0.0, 0.0),
-                rotation: 0.0,
-                render_target: None,
-                viewport: None,
-            },
-            background_color: Color::new(1.0, 1.0, 1.0, 1.0),
-        };
-        let mut state = world.turtles[0].clone();
-
         // Initial state: position (0, 0), heading 0 (east)
         assert_eq!(state.params.position.x, 0.0);
         assert_eq!(state.params.position.y, 0.0);
         assert_eq!(state.params.heading, 0.0);
 
         // Forward 100 - should move to (100, 0)
-        execute_command(&TurtleCommand::Move(100.0), &mut state);
+        execute_command(&TurtleCommand::Move(Length::new(100.0)), &mut state);
         assert!(
             (state.params.position.x - 100.0).abs() < 0.01,
             "After forward(100): x = {}",
@@ -559,7 +543,7 @@ mod tests {
         );
 
         // Forward 50 - should move north (negative Y) to (100, -50)
-        execute_command(&TurtleCommand::Move(50.0), &mut state);
+        execute_command(&TurtleCommand::Move(Length::new(50.0)), &mut state);
         assert!(
             (state.params.position.x - 100.0).abs() < 0.01,
             "Final position: x = {} (expected 100.0)",

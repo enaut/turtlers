@@ -3,7 +3,6 @@
 //! This module provides helper functions to tessellate paths using Lyon,
 //! which replaces the manual triangulation with GPU-optimized tessellation.
 
-use crate::state::MeshData;
 use lyon::math::{point, Point};
 use lyon::path::{LineCap, LineJoin, Path};
 use lyon::tessellation::{
@@ -31,13 +30,13 @@ pub(crate) struct SimpleVertex {
     pub(crate) position: [f32; 2],
 }
 
-/// Build mesh data from Lyon tessellation
+/// Build mesh from Lyon tessellation
 #[must_use]
-pub(crate) fn build_mesh_data(
+pub(crate) fn build_mesh(
     vertices: &[SimpleVertex],
     indices: &[u16],
     color: Color,
-) -> MeshData {
+) -> Mesh {
     let verts: Vec<Vertex> = vertices
         .iter()
         .map(|v| Vertex {
@@ -53,9 +52,10 @@ pub(crate) fn build_mesh_data(
         })
         .collect();
 
-    MeshData {
+    Mesh {
         vertices: verts,
         indices: indices.to_vec(),
+        texture: None,
     }
 }
 
@@ -69,7 +69,7 @@ pub(crate) fn build_mesh_data(
 pub(crate) fn tessellate_polygon(
     vertices: &[Vec2],
     color: Color,
-) -> Result<MeshData, Box<dyn std::error::Error>> {
+) -> Result<Mesh, Box<dyn std::error::Error>> {
     if vertices.is_empty() {
         return Err("No vertices provided".into());
     }
@@ -96,7 +96,7 @@ pub(crate) fn tessellate_polygon(
         }),
     )?;
 
-    Ok(build_mesh_data(
+    Ok(build_mesh(
         &geometry.vertices,
         &geometry.indices,
         color,
@@ -114,7 +114,7 @@ pub(crate) fn tessellate_polygon(
 pub(crate) fn tessellate_multi_contour(
     contours: &[Vec<Vec2>],
     color: Color,
-) -> Result<MeshData, Box<dyn std::error::Error>> {
+) -> Result<Mesh, Box<dyn std::error::Error>> {
     if contours.is_empty() {
         return Err("No contours provided".into());
     }
@@ -195,7 +195,7 @@ pub(crate) fn tessellate_multi_contour(
         }
     }
 
-    Ok(build_mesh_data(
+    Ok(build_mesh(
         &geometry.vertices,
         &geometry.indices,
         color,
@@ -212,7 +212,7 @@ pub(crate) fn tessellate_stroke(
     color: Color,
     width: f32,
     closed: bool,
-) -> Result<MeshData, Box<dyn std::error::Error>> {
+) -> Result<Mesh, Box<dyn std::error::Error>> {
     if vertices.is_empty() {
         return Err("No vertices provided".into());
     }
@@ -241,7 +241,7 @@ pub(crate) fn tessellate_stroke(
         }),
     )?;
 
-    Ok(build_mesh_data(
+    Ok(build_mesh(
         &geometry.vertices,
         &geometry.indices,
         color,
@@ -259,7 +259,7 @@ pub(crate) fn tessellate_circle(
     color: Color,
     filled: bool,
     stroke_width: f32,
-) -> Result<MeshData, Box<dyn std::error::Error>> {
+) -> Result<Mesh, Box<dyn std::error::Error>> {
     let mut builder = Path::builder();
     builder.add_circle(to_lyon_point(center), radius, lyon::path::Winding::Positive);
     let path = builder.build();
@@ -286,7 +286,7 @@ pub(crate) fn tessellate_circle(
         )?;
     }
 
-    Ok(build_mesh_data(
+    Ok(build_mesh(
         &geometry.vertices,
         &geometry.indices,
         color,
@@ -308,7 +308,7 @@ pub(crate) fn tessellate_arc(
     stroke_width: f32,
     segments: usize,
     direction: crate::circle_geometry::CircleDirection,
-) -> Result<MeshData, Box<dyn std::error::Error>> {
+) -> Result<Mesh, Box<dyn std::error::Error>> {
     use crate::circle_geometry::arc_points;
 
     let start_angle = start_angle_degrees.to_radians();
@@ -352,7 +352,7 @@ pub(crate) fn tessellate_arc(
         }),
     )?;
 
-    Ok(build_mesh_data(
+    Ok(build_mesh(
         &geometry.vertices,
         &geometry.indices,
         color,
