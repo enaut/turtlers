@@ -6,7 +6,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use syn::ItemFn;
 
 /// A convenience macro that wraps your turtle drawing code with the necessary
 /// boilerplate for running a turtle graphics program.
@@ -117,6 +117,30 @@ fn validate_input(input_fn: &ItemFn) -> Result<(), syn::Error> {
         ));
     }
 
+    if let Some(arg) = input_fn.sig.inputs.first() {
+        match arg {
+            syn::FnArg::Receiver(receiver) => {
+                return Err(syn::Error::new_spanned(
+                    receiver,
+                    "#[turtle_main] functions cannot take a `self` parameter",
+                ));
+            }
+            syn::FnArg::Typed(pat_type) => {
+                match &*pat_type.pat {
+                    syn::Pat::Ident(pat_ident)
+                        if pat_ident.by_ref.is_none() && pat_ident.subpat.is_none() => {}
+                    syn::Pat::Wild(_) => {}
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &pat_type.pat,
+                            "#[turtle_main] unsupported parameter pattern; expected an identifier like `turtle` or `t`",
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
     if matches!(input_fn.sig.output, syn::ReturnType::Type(..)) {
         return Err(syn::Error::new_spanned(
             &input_fn.sig.output,
@@ -129,12 +153,19 @@ fn validate_input(input_fn: &ItemFn) -> Result<(), syn::Error> {
 
 #[proc_macro_attribute]
 pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
-    let input_fn = parse_macro_input!(input as ItemFn);
+    turtle_main_impl(&args.into(), input.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+fn turtle_main_impl(
+    args: &proc_macro2::TokenStream,
+    input: proc_macro2::TokenStream,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let input_fn: ItemFn = syn::parse2(input)?;
 
     // Validate function signature
-    if let Err(err) = validate_input(&input_fn) {
-        return err.to_compile_error().into();
-    }
+    validate_input(&input_fn)?;
 
     // Parse the window title from args (default to "Turtle Graphics")
     let window_title = if args.is_empty() {
@@ -149,6 +180,11 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
     let fn_name = &input_fn.sig.ident;
     let fn_block = &input_fn.block;
     let fn_attrs = &input_fn.attrs;
+    let fn_vis = if fn_name == "main" {
+        None
+    } else {
+        Some(&input_fn.vis)
+    };
     let has_turtle_param = input_fn.sig.inputs.len() == 1;
 
     let helper_name = if fn_name == "main" {
@@ -158,14 +194,15 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let helper_fn = if has_turtle_param {
+        let param = &input_fn.sig.inputs[0];
         quote! {
             #(#fn_attrs)*
-            fn #helper_name(turtle: &mut turtle_lib::TurtlePlan) #fn_block
+            #fn_vis fn #helper_name(#param) #fn_block
         }
     } else {
         quote! {
             #(#fn_attrs)*
-            fn #helper_name(turtle: &mut turtle_lib::TurtlePlan) {
+            #fn_vis fn #helper_name(turtle: &mut turtle_lib::TurtlePlan) {
                 let turtle = turtle;
                 #fn_block
             }
@@ -226,7 +263,7 @@ pub fn turtle_main(args: TokenStream, input: TokenStream) -> TokenStream {
         #helper_fn
     };
 
-    TokenStream::from(expanded)
+    Ok(expanded)
 }
 
 #[cfg(test)]
@@ -255,6 +292,24 @@ mod tests {
     }
 
     #[test]
+    fn test_valid_mut_arg() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(mut t: &mut TurtlePlan) {
+                t.forward(100.0);
+            }
+        };
+        assert!(validate_input(&input).is_ok());
+    }
+
+    #[test]
+    fn test_valid_wildcard_arg() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(_: &mut TurtlePlan) {}
+        };
+        assert!(validate_input(&input).is_ok());
+    }
+
+    #[test]
     fn test_rejects_async() {
         let input: ItemFn = parse_quote! {
             async fn my_draw() {}
@@ -273,6 +328,24 @@ mod tests {
     }
 
     #[test]
+    fn test_rejects_self() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw(&mut self) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("cannot take a `self` parameter"));
+    }
+
+    #[test]
+    fn test_rejects_unsupported_pattern() {
+        let input: ItemFn = parse_quote! {
+            fn my_draw((a, b): &mut TurtlePlan) {}
+        };
+        let err = validate_input(&input).unwrap_err();
+        assert!(err.to_string().contains("unsupported parameter pattern"));
+    }
+
+    #[test]
     fn test_rejects_return_type() {
         let input: ItemFn = parse_quote! {
             fn my_draw() -> i32 {
@@ -281,5 +354,146 @@ mod tests {
         };
         let err = validate_input(&input).unwrap_err();
         assert!(err.to_string().contains("cannot have a return type"));
+    }
+
+    #[test]
+    fn test_expansion_preserves_custom_param_name() {
+        let input = quote! {
+            fn my_draw(t: &mut TurtlePlan) {
+                t.forward(100.0);
+            }
+        };
+        let output = turtle_main_impl(&quote!(), input).unwrap();
+        let file: syn::File = syn::parse2(output).unwrap();
+
+        let helper_fn = file
+            .items
+            .iter()
+            .find_map(|item| {
+                if let syn::Item::Fn(f) = item {
+                    if f.sig.ident == "my_draw" {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .expect("helper fn `my_draw` should exist");
+
+        let first_arg = helper_fn.sig.inputs.first().expect("should have 1 arg");
+        if let syn::FnArg::Typed(pat_type) = first_arg {
+            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                assert_eq!(pat_ident.ident, "t");
+            } else {
+                panic!("expected ident pattern");
+            }
+        } else {
+            panic!("expected typed arg");
+        }
+    }
+
+    #[test]
+    fn test_expansion_preserves_mut_param() {
+        let input = quote! {
+            fn my_draw(mut t: &mut TurtlePlan) {
+                t.forward(100.0);
+            }
+        };
+        let output = turtle_main_impl(&quote!(), input).unwrap();
+        let file: syn::File = syn::parse2(output).unwrap();
+
+        let helper_fn = file
+            .items
+            .iter()
+            .find_map(|item| {
+                if let syn::Item::Fn(f) = item {
+                    if f.sig.ident == "my_draw" {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .expect("helper fn `my_draw` should exist");
+
+        let first_arg = helper_fn.sig.inputs.first().expect("should have 1 arg");
+        if let syn::FnArg::Typed(pat_type) = first_arg {
+            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                assert_eq!(pat_ident.ident, "t");
+                assert!(pat_ident.mutability.is_some());
+            } else {
+                panic!("expected ident pattern");
+            }
+        } else {
+            panic!("expected typed arg");
+        }
+    }
+
+    #[test]
+    fn test_expansion_main_fn_renamed() {
+        let input = quote! {
+            fn main(t: &mut TurtlePlan) {
+                t.forward(100.0);
+            }
+        };
+        let output = turtle_main_impl(&quote!(), input).unwrap();
+        let file: syn::File = syn::parse2(output).unwrap();
+
+        let helper_fn = file
+            .items
+            .iter()
+            .find_map(|item| {
+                if let syn::Item::Fn(f) = item {
+                    if f.sig.ident == "__turtle_main_draw" {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .expect("helper fn `__turtle_main_draw` should exist");
+
+        let first_arg = helper_fn.sig.inputs.first().expect("should have 1 arg");
+        if let syn::FnArg::Typed(pat_type) = first_arg {
+            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                assert_eq!(pat_ident.ident, "t");
+            } else {
+                panic!("expected ident pattern");
+            }
+        } else {
+            panic!("expected typed arg");
+        }
+    }
+
+    #[test]
+    fn test_expansion_zero_args() {
+        let input = quote! {
+            fn my_draw() {
+                turtle.forward(100.0);
+            }
+        };
+        let output = turtle_main_impl(&quote!(), input).unwrap();
+        let file: syn::File = syn::parse2(output).unwrap();
+
+        let helper_fn = file
+            .items
+            .iter()
+            .find_map(|item| {
+                if let syn::Item::Fn(f) = item {
+                    if f.sig.ident == "my_draw" {
+                        return Some(f);
+                    }
+                }
+                None
+            })
+            .expect("helper fn `my_draw` should exist");
+
+        let first_arg = helper_fn.sig.inputs.first().expect("should have 1 arg");
+        if let syn::FnArg::Typed(pat_type) = first_arg {
+            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                assert_eq!(pat_ident.ident, "turtle");
+            } else {
+                panic!("expected ident pattern");
+            }
+        } else {
+            panic!("expected typed arg");
+        }
     }
 }
