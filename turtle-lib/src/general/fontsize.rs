@@ -49,7 +49,7 @@ impl From<f64> for FontSize {
 
 impl From<usize> for FontSize {
     fn from(size: usize) -> Self {
-        Self((size as u16).max(1))
+        Self(u16::try_from(size).unwrap_or(u16::MAX).max(1))
     }
 }
 
