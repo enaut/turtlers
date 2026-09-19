@@ -55,12 +55,13 @@ pub(crate) struct TweenController {
 #[derive(Clone, Debug)]
 pub(crate) struct CommandTween {
     pub(crate) command: TurtleCommand,
-    pub(crate) start_time: f64,
-    pub(crate) duration: f64,
+    pub(crate) progress: f32,
     pub(crate) start_params: TurtleParams,
     pub(crate) target_params: TurtleParams,
     pub(crate) current_position: Vec2,
     pub(crate) current_heading: f32,
+    start_time: f64,
+    duration: f64,
     position_tweener: Tweener<TweenVec2, f64, CubicInOut>,
     heading_tweener: Tweener<f32, f64, CubicInOut>,
     pen_width_tweener: Tweener<f32, f64, CubicInOut>,
@@ -166,7 +167,8 @@ impl TweenController {
 
             // Use tweeners to calculate current values
             // For circles, calculate position along the arc instead of straight line
-            let progress = tween.heading_tweener.move_to(elapsed);
+            let progress = tween.heading_tweener.move_to(elapsed).clamp(0.0, 1.0);
+            tween.progress = progress;
 
             let current_position = match &tween.command {
                 TurtleCommand::Circle {
@@ -316,6 +318,7 @@ impl TweenController {
 
             self.current_tween = Some(CommandTween {
                 command,
+                progress: 0.0,
                 start_time: current_time(),
                 duration,
                 start_params: params.clone(),
@@ -537,7 +540,42 @@ mod tests {
         controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
 
         assert_eq!(controller.queue.len(), 1, "First command must be popped into current_tween");
-        assert!(controller.current_tween().is_some());
+        let active = controller.current_tween().expect("Must have active tween");
+        assert_eq!(active.progress, 0.0, "New tween must initialize progress to 0.0");
         assert!(!controller.is_complete());
+    }
+
+    #[test]
+    fn test_animated_mode_progress_advances_and_clamps() {
+        let mut queue = CommandQueue::new();
+        // Circle command with speed 10.0 and radius 100 => duration ~62.8s
+        queue.push(TurtleCommand::Circle {
+            radius: Length::new(100.0),
+            angle: Degrees::new(360.0),
+            steps: 36,
+            direction: CircleDirection::Right,
+        });
+
+        let mut controller = TweenController::new(
+            queue,
+            AnimationSpeed::Animated(10.0),
+        );
+        let mut params = make_test_params();
+        let mut filling = None;
+        let mut commands = Vec::new();
+        let mut svg_log = crate::state::SvgLog::default();
+
+        // Frame 0: pops into current_tween with progress = 0.0
+        controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        let initial_progress = controller.current_tween().unwrap().progress;
+        assert_eq!(initial_progress, 0.0);
+
+        // Advance time by sleeping briefly
+        std::thread::sleep(std::time::Duration::from_millis(15));
+        controller.update(0, &mut params, &mut filling, &mut commands, &mut svg_log);
+        if let Some(tween) = controller.current_tween() {
+            assert!(tween.progress >= 0.0 && tween.progress <= 1.0);
+            assert!(tween.progress >= initial_progress);
+        }
     }
 }

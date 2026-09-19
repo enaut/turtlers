@@ -5,12 +5,7 @@ use crate::state::{DrawCommand, TurtleParams, TurtleWorld};
 use crate::tessellation;
 use macroquad::prelude::*;
 
-// Import the easing function from the tween crate
-// To change the easing, change both this import and the usage in the draw_tween_arc function below
-// Available options: Linear, SineInOut, QuadInOut, CubicInOut, QuartInOut, QuintInOut,
-//                    ExpoInOut, CircInOut, BackInOut, ElasticInOut, BounceInOut, etc.
-// See https://easings.net/ for visual demonstrations
-use tween::CubicInOut;
+
 
 /// Render the turtle world with active tween visualization.
 #[allow(clippy::too_many_lines)]
@@ -136,15 +131,11 @@ pub(crate) fn render_world_with_tweens(world: &TurtleWorld, zoom_level: f32) {
                             radius.value(),
                             *direction,
                         );
-                        let elapsed = get_time() - tween.start_time;
-                        let progress = (elapsed / tween.duration).min(1.0);
-                        let eased_progress = CubicInOut.tween(1.0, progress as f32);
-
                         // Delegate to the shared arc_points function — same sampling
-                        // strategy as tessellate_arc, eliminating the divergence.
+                        // strategy as tessellate_arc, using tween.progress directly.
                         let samples_to_draw =
-                            (((*steps).max(1) as f32 * eased_progress) as usize).max(1);
-                        let sweep_so_far = angle.as_radians().value() * eased_progress;
+                            (((*steps).max(1) as f32 * tween.progress) as usize).max(1);
+                        let sweep_so_far = angle.as_radians().value() * tween.progress;
                         for pt in arc_points(
                             geom.center,
                             radius.value(),
@@ -309,21 +300,15 @@ fn draw_tween_arc(
         draw_mesh(&mesh);
     }
 
-    // Calculate how much of the arc we've traveled based on tween progress
-    // Use the same eased progress as the turtle position for synchronized animation
-    let elapsed = get_time() - tween.start_time;
-    let t = (elapsed / tween.duration).min(1.0);
-    let progress = CubicInOut.tween(1.0, t as f32); // tween from 0 to 1
-
-    // Use Lyon to tessellate and draw the partial arc
+    // Draw the partial arc traveled based on tween progress
     if let Ok(mesh) = crate::tessellation::tessellate_arc(
         geom.center,
         radius,
         geom.start_angle_from_center.to_degrees(),
-        total_angle.value() * progress,
+        total_angle.value() * tween.progress,
         tween.start_params.color,
         tween.start_params.pen_width,
-        ((steps as f32 * progress).ceil() as usize).max(1),
+        ((steps as f32 * tween.progress).ceil() as usize).max(1),
         direction,
     ) {
         draw_mesh(&mesh);
