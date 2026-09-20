@@ -14,6 +14,7 @@ tracing = { version = "0.1", features = [
 ], default-features = false }
 turtle-lib-macros = { path = "../turtle-lib-macros" }
 crossbeam = "0.8"
+pico-args = { version = "0.5", features = ["eq-separator"] }
 
 [dev-dependencies]
 # For examples and testing

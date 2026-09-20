@@ -66,17 +66,11 @@ use syn::ItemFn;
 /// use turtle_lib::*;
 ///
 /// fn main() {
+///     let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
+///         my_drawing(turtle);
+///     };
 ///     // Handle optional SVG export headlessly without opening a window
-///     if let Some(filename) = turtle_lib::export::parse_svg_export_arg() {
-///         let mut build_commands = |turtle: &mut turtle_lib::TurtlePlan| {
-///             my_drawing(turtle);
-///         };
-///         if let Err(e) = turtle_lib::export::run_headless_svg_export(&mut build_commands, &filename) {
-///             eprintln!("Error exporting SVG: {:?}", e);
-///             std::process::exit(1);
-///         }
-///         return;
-///     }
+///     turtle_lib::export::handle_svg_export(&mut build_commands);
 ///
 ///     // Normal interactive GUI mode with window
 ///     turtle_lib::macroquad::Window::new("My Turtle Drawing", async {
@@ -252,18 +246,7 @@ fn turtle_main_impl(
             };
 
             // If --export-svg flag is present, export headlessly without opening a window
-            if let Some(filename) = turtle_lib::export::parse_svg_export_arg() {
-                match turtle_lib::export::run_headless_svg_export(&mut build_commands, &filename) {
-                    Ok(()) => {
-                        println!("SVG exported successfully to: {}", filename);
-                        return;
-                    }
-                    Err(e) => {
-                        eprintln!("Error exporting SVG: {}", e);
-                        std::process::exit(1);
-                    }
-                }
-            }
+            turtle_lib::export::handle_svg_export(&mut build_commands);
 
             // Normal rendering mode (interactive window)
             turtle_lib::macroquad::Window::new(#window_title, async {
