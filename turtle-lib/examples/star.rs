@@ -9,11 +9,11 @@ fn draw(turtle: &mut TurtlePlan) {
     turtle.set_pen_width(0.5);
 
     // Draw a 5-pointed star pattern repeatedly
-    for _i in 0..50000 {
+    for _i in 0..500 {
         turtle.forward(200.0);
-        turtle.circle_left(10.0, 72.0, 1000);
-        turtle.circle_right(5.0, 360.0, 1000);
-        turtle.circle_left(10.0, 72.0, 1000);
+        turtle.circle_left(10.0, 72.0, 100);
+        turtle.circle_right(5.0, 360.0, 100);
+        turtle.circle_left(10.0, 72.0, 100);
     }
 
     // Set animation speed

@@ -27,9 +27,11 @@ pub mod svg_export {
 
     pub struct SvgExporter;
 
-    impl DrawingExporter for SvgExporter {
+    impl SvgExporter {
+        /// Generate an SVG [`Document`] from the given [`TurtleWorld`].
+        #[must_use]
         #[allow(clippy::too_many_lines)]
-        fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError> {
+        pub fn to_svg_document(world: &TurtleWorld) -> Document {
             let mut doc = Document::new();
 
             let mut min_x = f32::INFINITY;
@@ -58,7 +60,8 @@ pub mod svg_export {
                                 .set("x2", end.x)
                                 .set("y2", end.y)
                                 .set("stroke", color_to_svg(*color))
-                                .set("stroke-width", *pen_width);
+                                .set("stroke-width", *pen_width)
+                                .set("stroke-linecap", "round");
                             doc = doc.add(line);
                         }
 
@@ -132,6 +135,7 @@ pub mod svg_export {
                                     .set("d", d)
                                     .set("stroke", color_to_svg(*color))
                                     .set("stroke-width", *pen_width)
+                                    .set("stroke-linecap", "round")
                                     .set("fill", "none");
                                 doc = doc.add(path);
                             }
@@ -218,6 +222,13 @@ pub mod svg_export {
                 doc = doc.set("viewBox", "0 0 400 400");
             }
 
+            doc
+        }
+    }
+
+    impl DrawingExporter for SvgExporter {
+        fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError> {
+            let doc = Self::to_svg_document(world);
             let mut file = File::create(filename).map_err(ExportError::Io)?;
             svg::write(&mut file, &doc).map_err(ExportError::Io)?;
             Ok(())
@@ -232,6 +243,57 @@ pub mod svg_export {
             format!("rgba({r},{g},{b},{})", color.a)
         } else {
             format!("rgb({r},{g},{b})")
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::circle_geometry::CircleDirection;
+        use crate::general::{Color, Coordinate, Degrees};
+        use crate::state::{SvgRecord, Turtle};
+
+        #[test]
+        fn test_svg_export_line_has_round_line_caps() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            turtle.svg_log.push(SvgRecord::Line {
+                start: Coordinate::new(0.0, 0.0),
+                end: Coordinate::new(100.0, 0.0),
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            assert!(
+                svg_string.contains(r#"stroke-linecap="round""#),
+                "SVG export of lines should have round line caps: {svg_string}"
+            );
+        }
+
+        #[test]
+        fn test_svg_export_arc_has_round_line_caps() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            turtle.svg_log.push(SvgRecord::Arc {
+                start_position: Coordinate::new(0.0, 0.0),
+                start_heading: 0.0,
+                radius: 50.0,
+                angle: Degrees::new(90.0),
+                direction: CircleDirection::Right,
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            assert!(
+                svg_string.contains(r#"stroke-linecap="round""#),
+                "SVG export of partial arcs should have round line caps: {svg_string}"
+            );
         }
     }
 }
