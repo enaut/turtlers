@@ -17,6 +17,10 @@
 //! That is relatively easy to implement, as long as you follow these steps and let recursion do
 //! the rest. Another little bonus this example provides is the ability to customize the drawing
 //! size: the triangle will stay correctly sized and positioned automatically.
+//!
+//! Note: This example queries `screen_width()` and `screen_height()` to calculate positioning
+//! relative to the window. Consequently, it requires an active graphics window and does not
+//! support headless SVG export (`--export-svg`).
 
 use macroquad::window::{screen_height, screen_width};
 use turtle_lib::*;
@@ -86,6 +90,9 @@ fn sierpinski_triangle(turtle: &mut TurtlePlan, level: u8, size: f32) {
 /// `level` is still required, it can't be computed automatically. However, given the used
 /// canvas size, it will compute the appropriate size and start point so the triangle gets
 /// centered and occupies as much drawing space as possible while staying in bounds.
+///
+/// Note: Because this function queries window dimensions, it requires an active graphics
+/// window and cannot be run in headless SVG export mode.
 fn sierpinski_triangle_auto(turtle: &mut TurtlePlan, level: u8) {
     let size = TRIANGLE_SIZE;
 

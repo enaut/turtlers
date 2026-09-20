@@ -126,6 +126,7 @@ pub(crate) struct SvgLog {
 }
 
 impl SvgLog {
+    #[allow(clippy::unused_self)]
     pub(crate) fn clear(&mut self) {
         #[cfg(feature = "svg")]
         self.records.clear();

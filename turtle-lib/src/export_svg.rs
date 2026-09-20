@@ -27,9 +27,11 @@ pub mod svg_export {
 
     pub struct SvgExporter;
 
-    impl DrawingExporter for SvgExporter {
+    impl SvgExporter {
+        /// Generate an SVG [`Document`] from the given [`TurtleWorld`].
+        #[must_use]
         #[allow(clippy::too_many_lines)]
-        fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError> {
+        pub fn to_svg_document(world: &TurtleWorld) -> Document {
             let mut doc = Document::new();
 
             let mut min_x = f32::INFINITY;
@@ -58,7 +60,8 @@ pub mod svg_export {
                                 .set("x2", end.x)
                                 .set("y2", end.y)
                                 .set("stroke", color_to_svg(*color))
-                                .set("stroke-width", *pen_width);
+                                .set("stroke-width", *pen_width)
+                                .set("stroke-linecap", "round");
                             doc = doc.add(line);
                         }
 
@@ -80,6 +83,7 @@ pub mod svg_export {
                                 *direction,
                             );
                             let center = geom.center;
+                            let radius_val = radius.abs();
                             // Include the bounding box of the full circle so partial arcs
                             // are never clipped.
                             update_bounds(
@@ -87,24 +91,24 @@ pub mod svg_export {
                                 &mut max_x,
                                 &mut min_y,
                                 &mut max_y,
-                                center.x - radius,
-                                center.y - radius,
+                                center.x - radius_val,
+                                center.y - radius_val,
                             );
                             update_bounds(
                                 &mut min_x,
                                 &mut max_x,
                                 &mut min_y,
                                 &mut max_y,
-                                center.x + radius,
-                                center.y + radius,
+                                center.x + radius_val,
+                                center.y + radius_val,
                             );
 
-                            if (angle.value() - 360.0).abs() < 1e-3 {
+                            if (angle.value().abs() - 360.0).abs() < 1e-3 {
                                 // Full circle — emit as <circle>
                                 let circle = Circle::new()
                                     .set("cx", center.x)
                                     .set("cy", center.y)
-                                    .set("r", *radius)
+                                    .set("r", radius_val)
                                     .set("stroke", color_to_svg(*color))
                                     .set("stroke-width", *pen_width)
                                     .set("fill", "none");
@@ -112,17 +116,19 @@ pub mod svg_export {
                             } else {
                                 // Partial arc — emit as <path A …>
                                 let end = geom.position_at_angle(angle.as_radians().value());
-                                let large_arc = i32::from(angle.value() > 180.0);
-                                let sweep = match direction {
-                                    crate::circle_geometry::CircleDirection::Left => 0,
-                                    crate::circle_geometry::CircleDirection::Right => 1,
+                                let large_arc = i32::from(angle.value().abs() > 180.0);
+                                let sweep = match (direction, angle.value() >= 0.0) {
+                                    (crate::circle_geometry::CircleDirection::Right, true)
+                                    | (crate::circle_geometry::CircleDirection::Left, false) => 1,
+                                    (crate::circle_geometry::CircleDirection::Left, true)
+                                    | (crate::circle_geometry::CircleDirection::Right, false) => 0,
                                 };
                                 let d = format!(
                                     "M {} {} A {} {} 0 {} {} {} {}",
                                     start_position.x,
                                     start_position.y,
-                                    radius,
-                                    radius,
+                                    radius_val,
+                                    radius_val,
                                     large_arc,
                                     sweep,
                                     end.x,
@@ -132,6 +138,7 @@ pub mod svg_export {
                                     .set("d", d)
                                     .set("stroke", color_to_svg(*color))
                                     .set("stroke-width", *pen_width)
+                                    .set("stroke-linecap", "round")
                                     .set("fill", "none");
                                 doc = doc.add(path);
                             }
@@ -218,6 +225,13 @@ pub mod svg_export {
                 doc = doc.set("viewBox", "0 0 400 400");
             }
 
+            doc
+        }
+    }
+
+    impl DrawingExporter for SvgExporter {
+        fn export(&self, world: &TurtleWorld, filename: &str) -> Result<(), ExportError> {
+            let doc = Self::to_svg_document(world);
             let mut file = File::create(filename).map_err(ExportError::Io)?;
             svg::write(&mut file, &doc).map_err(ExportError::Io)?;
             Ok(())
@@ -232,6 +246,97 @@ pub mod svg_export {
             format!("rgba({r},{g},{b},{})", color.a)
         } else {
             format!("rgb({r},{g},{b})")
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::circle_geometry::CircleDirection;
+        use crate::general::{Color, Coordinate, Degrees};
+        use crate::state::{SvgRecord, Turtle};
+
+        #[test]
+        fn test_svg_export_line_has_round_line_caps() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            turtle.svg_log.push(SvgRecord::Line {
+                start: Coordinate::new(0.0, 0.0),
+                end: Coordinate::new(100.0, 0.0),
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            assert!(
+                svg_string.contains(r#"stroke-linecap="round""#),
+                "SVG export of lines should have round line caps: {svg_string}"
+            );
+        }
+
+        #[test]
+        fn test_svg_export_arc_has_round_line_caps() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            turtle.svg_log.push(SvgRecord::Arc {
+                start_position: Coordinate::new(0.0, 0.0),
+                start_heading: 0.0,
+                radius: 50.0,
+                angle: Degrees::new(90.0),
+                direction: CircleDirection::Right,
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            assert!(
+                svg_string.contains(r#"stroke-linecap="round""#),
+                "SVG export of partial arcs should have round line caps: {svg_string}"
+            );
+        }
+
+        #[test]
+        fn test_svg_export_arc_negative_angle_sweep() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            // Circle right with negative angle should sweep counter-clockwise (sweep = 0)
+            turtle.svg_log.push(SvgRecord::Arc {
+                start_position: Coordinate::new(0.0, 0.0),
+                start_heading: 0.0,
+                radius: 50.0,
+                angle: Degrees::new(-90.0),
+                direction: CircleDirection::Right,
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            // Circle left with negative angle should sweep clockwise (sweep = 1)
+            turtle.svg_log.push(SvgRecord::Arc {
+                start_position: Coordinate::new(100.0, 100.0),
+                start_heading: 0.0,
+                radius: 50.0,
+                angle: Degrees::new(-90.0),
+                direction: CircleDirection::Left,
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            // Right with negative angle: large_arc=0, sweep=0 -> "0 0 0"
+            assert!(
+                svg_string.contains("A 50 50 0 0 0"),
+                "Circle right with negative angle should have sweep=0: {svg_string}"
+            );
+            // Left with negative angle: large_arc=0, sweep=1 -> "0 0 1"
+            assert!(
+                svg_string.contains("A 50 50 0 0 1"),
+                "Circle left with negative angle should have sweep=1: {svg_string}"
+            );
         }
     }
 }
