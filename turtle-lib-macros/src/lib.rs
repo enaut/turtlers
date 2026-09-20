@@ -259,7 +259,7 @@ fn turtle_main_impl(
                         return;
                     }
                     Err(e) => {
-                        eprintln!("Error exporting SVG: {:?}", e);
+                        eprintln!("Error exporting SVG: {}", e);
                         std::process::exit(1);
                     }
                 }
