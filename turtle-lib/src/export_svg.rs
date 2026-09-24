@@ -84,27 +84,27 @@ pub mod svg_export {
                             );
                             let center = geom.center;
                             let radius_val = radius.abs();
-                            // Include the bounding box of the full circle so partial arcs
-                            // are never clipped.
-                            update_bounds(
-                                &mut min_x,
-                                &mut max_x,
-                                &mut min_y,
-                                &mut max_y,
-                                center.x - radius_val,
-                                center.y - radius_val,
-                            );
-                            update_bounds(
-                                &mut min_x,
-                                &mut max_x,
-                                &mut min_y,
-                                &mut max_y,
-                                center.x + radius_val,
-                                center.y + radius_val,
-                            );
+                            let angle_radians = angle.as_radians().value();
 
                             if (angle.value().abs() - 360.0).abs() < 1e-3 {
-                                // Full circle — emit as <circle>
+                                // Full circle — include the circle bounds.
+                                update_bounds(
+                                    &mut min_x,
+                                    &mut max_x,
+                                    &mut min_y,
+                                    &mut max_y,
+                                    center.x - radius_val,
+                                    center.y - radius_val,
+                                );
+                                update_bounds(
+                                    &mut min_x,
+                                    &mut max_x,
+                                    &mut min_y,
+                                    &mut max_y,
+                                    center.x + radius_val,
+                                    center.y + radius_val,
+                                );
+
                                 let circle = Circle::new()
                                     .set("cx", center.x)
                                     .set("cy", center.y)
@@ -114,8 +114,26 @@ pub mod svg_export {
                                     .set("fill", "none");
                                 doc = doc.add(circle);
                             } else {
-                                // Partial arc — emit as <path A …>
-                                let end = geom.position_at_angle(angle.as_radians().value());
+                                // Partial arc — use the actual visible arc for bounds, not the full circle.
+                                let samples = ((angle.value().abs() / 5.0).ceil() as usize).max(2);
+                                for i in 0..=samples {
+                                    let progress = i as f32 / samples as f32;
+                                    let point = geom.position_at_angle(angle_radians * progress);
+                                    update_bounds(
+                                        &mut min_x, &mut max_x, &mut min_y, &mut max_y, point.x,
+                                        point.y,
+                                    );
+                                }
+                                update_bounds(
+                                    &mut min_x,
+                                    &mut max_x,
+                                    &mut min_y,
+                                    &mut max_y,
+                                    start_position.x,
+                                    start_position.y,
+                                );
+
+                                let end = geom.position_at_angle(angle_radians);
                                 let large_arc = i32::from(angle.value().abs() > 180.0);
                                 let sweep = match (direction, angle.value() >= 0.0) {
                                     (crate::circle_geometry::CircleDirection::Right, true)
@@ -296,6 +314,29 @@ pub mod svg_export {
             assert!(
                 svg_string.contains(r#"stroke-linecap="round""#),
                 "SVG export of partial arcs should have round line caps: {svg_string}"
+            );
+        }
+
+        #[test]
+        fn test_svg_export_partial_arc_uses_actual_bounds() {
+            let mut world = TurtleWorld::new();
+            let mut turtle = Turtle::default();
+            turtle.svg_log.push(SvgRecord::Arc {
+                start_position: Coordinate::new(0.0, 0.0),
+                start_heading: 0.0,
+                radius: 50.0,
+                angle: Degrees::new(90.0),
+                direction: CircleDirection::Right,
+                color: Color::new(0.0, 0.0, 0.0, 1.0),
+                pen_width: 2.0,
+            });
+            world.turtles.push(turtle);
+
+            let doc = SvgExporter::to_svg_document(&world);
+            let svg_string = doc.to_string();
+            assert!(
+                !svg_string.contains("viewBox=\"-70"),
+                "partial arcs should not use full-circle bounds: {svg_string}"
             );
         }
 
